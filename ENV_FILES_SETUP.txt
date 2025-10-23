@@ -1,0 +1,75 @@
+================================================================================
+OBSIDIAN MROP - ENVIRONMENT FILES SETUP
+================================================================================
+
+You need to create 3 .env files in the following locations:
+
+================================================================================
+FILE 1: Obsidian-API/.env
+================================================================================
+
+PORT=5000
+NODE_ENV=development
+MONGODB_URI=mongodb://localhost:27017/obsidian
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+KAFKA_BROKERS=localhost:9092
+KAFKA_CLIENT_ID=obsidian-api
+KAFKA_GROUP_ID=obsidian-group
+JWT_SECRET=obsidian-mrop-super-secret-key-change-in-production-min-32-chars
+JWT_EXPIRES_IN=24h
+CIRCUIT_TIMEOUT=3000
+CIRCUIT_ERROR_THRESHOLD=50
+CIRCUIT_RESET_TIMEOUT=30000
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX_REQUESTS=100
+FRONTEND_URL=http://localhost:5173
+MOCK_SERVICE_URL=http://localhost:3001
+
+
+================================================================================
+FILE 2: Obsidian-Frontend/.env
+================================================================================
+
+VITE_API_URL=http://localhost:5000
+VITE_SOCKET_URL=http://localhost:5000
+
+
+================================================================================
+FILE 3: Mock-Microservice/.env
+================================================================================
+
+PORT=3001
+NODE_ENV=development
+OBSIDIAN_URL=http://localhost:5000
+
+
+================================================================================
+QUICK SETUP INSTRUCTIONS
+================================================================================
+
+1. Create these 3 files with the exact content above
+
+2. Make sure you have:
+   - Node.js installed
+   - MongoDB running
+   - Redis running on port 6379 ✓ (you confirmed this)
+
+3. Install dependencies in each folder:
+   cd Obsidian-API && npm install
+   cd Obsidian-Frontend && npm install
+   cd Mock-Microservice && npm install
+
+4. Start everything (3 separate terminals):
+   
+   Terminal 1: cd Obsidian-API && npm run dev
+   Terminal 2: cd Obsidian-Frontend && npm run dev
+   Terminal 3: cd Mock-Microservice && npm start
+
+5. Open browser: http://localhost:5173
+
+6. Create admin user (see LOCAL_SETUP_GUIDE.md Step 4)
+
+================================================================================
+

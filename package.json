@@ -1,0 +1,34 @@
+{
+  "name": "obsidian-mrop",
+  "version": "1.0.0",
+  "description": "Microservice Resilience & Observability Platform",
+  "scripts": {
+    "setup": "npm run setup:api && npm run setup:mock && npm run setup:frontend",
+    "setup:api": "cd Obsidian-API && npm install",
+    "setup:mock": "cd Mock-Microservice && npm install",
+    "setup:frontend": "cd Obsidian-Frontend && npm install",
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:mock\" \"npm run dev:frontend\"",
+    "dev:api": "cd Obsidian-API && npm run dev",
+    "dev:mock": "cd Mock-Microservice && npm run dev",
+    "dev:frontend": "cd Obsidian-Frontend && npm run dev",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "test": "npm run test:api && npm run test:frontend",
+    "test:api": "cd Obsidian-API && npm test",
+    "test:frontend": "cd Obsidian-Frontend && npm test"
+  },
+  "keywords": [
+    "microservices",
+    "resilience",
+    "observability",
+    "circuit-breaker",
+    "monitoring"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
+
