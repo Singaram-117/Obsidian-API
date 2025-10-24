@@ -47,6 +47,7 @@ export function SocketProvider({ children }) {
     });
 
     socketInstance.on('service:status', (data) => {
+      console.log('Service status update:', data);
       setServiceStatuses((prev) => ({
         ...prev,
         [data.serviceName]: data.status,
@@ -62,6 +63,7 @@ export function SocketProvider({ children }) {
       // Handle anomaly detection
       console.warn('Anomaly detected:', data);
     });
+
 
     setSocket(socketInstance);
 
@@ -82,6 +84,7 @@ export function SocketProvider({ children }) {
       socket.emit('unsubscribe:service', serviceName);
     }
   };
+
 
   const value = {
     socket,

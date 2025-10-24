@@ -508,49 +508,95 @@ router.get(
   '/:serviceName/overview',
   asyncHandler(async (req, res) => {
     const { serviceName } = req.params;
+    
+    logger.info('Fetching service overview', { serviceName });
 
     const service = await Service.findOne({ name: serviceName });
     if (!service) {
+      logger.warn('Service not found for overview', { serviceName });
       return res.status(404).json({
         success: false,
         error: 'Service not found',
       });
     }
 
-    // Get all related data
-    const [instances, instanceStats, rateLimitStatus, cacheStats] = await Promise.all([
-      loadBalancerService.getAllInstances(serviceName),
-      loadBalancerService.getInstanceStats(serviceName),
-      rateLimitService.getRateLimitStatus(serviceName),
-      responseCacheService.getServiceStats(serviceName),
-    ]);
+    // Get all related data with error handling
+    let instances = [];
+    let instanceStats = {};
+    let rateLimitStatus = {};
+    let cacheStats = {};
 
-    res.json({
-      success: true,
-      data: {
-        service: {
-          name: service.name,
-          url: service.url,
-          status: service.status,
-          circuitStatus: service.circuitStatus,
-          description: service.description,
-          github: service.github,
+    // Try to get load balancer data
+    try {
+      instances = await loadBalancerService.getAllInstances(serviceName);
+      logger.info('Got load balancer instances', { serviceName, count: instances.length });
+    } catch (err) {
+      logger.warn('Failed to get load balancer instances', { serviceName, error: err.message });
+      instances = [];
+    }
+
+    // Try to get instance stats
+    try {
+      instanceStats = await loadBalancerService.getInstanceStats(serviceName);
+      logger.info('Got instance stats', { serviceName });
+    } catch (err) {
+      logger.warn('Failed to get instance stats', { serviceName, error: err.message });
+      instanceStats = {};
+    }
+
+    // Try to get rate limit status
+    try {
+      rateLimitStatus = await rateLimitService.getRateLimitStatus(serviceName);
+      logger.info('Got rate limit status', { serviceName });
+    } catch (err) {
+      logger.warn('Failed to get rate limit status', { serviceName, error: err.message });
+      rateLimitStatus = {};
+    }
+
+    // Try to get cache stats
+    try {
+      cacheStats = await responseCacheService.getServiceStats(serviceName);
+      logger.info('Got cache stats', { serviceName });
+    } catch (err) {
+      logger.warn('Failed to get cache stats', { serviceName, error: err.message });
+      cacheStats = {};
+    }
+
+    try {
+      res.json({
+        success: true,
+        data: {
+          service: {
+            name: service.name,
+            url: service.url,
+            status: service.status,
+            circuitStatus: service.circuitStatus,
+            description: service.description,
+            github: service.github,
+          },
+          endpoints: service.endpoints || [],
+          endpointsDiscoveredAt: service.endpointsDiscoveredAt,
+          metrics: service.metrics,
+          rateLimit: rateLimitStatus,
+          cache: {
+            config: service.cache,
+            stats: cacheStats,
+          },
+          loadBalancing: {
+            config: service.loadBalancing,
+            instances,
+            stats: instanceStats,
+          },
         },
-        endpoints: service.endpoints || [],
-        endpointsDiscoveredAt: service.endpointsDiscoveredAt,
-        metrics: service.metrics,
-        rateLimit: rateLimitStatus,
-        cache: {
-          config: service.cache,
-          stats: cacheStats,
-        },
-        loadBalancing: {
-          config: service.loadBalancing,
-          instances,
-          stats: instanceStats,
-        },
-      },
-    });
+      });
+    } catch (error) {
+      logger.error('Error sending service overview response', { serviceName, error: error.message });
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate service overview',
+        message: error.message,
+      });
+    }
   })
 );
 

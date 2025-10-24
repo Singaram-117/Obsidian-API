@@ -8,11 +8,15 @@ import Badge from '../components/Badge';
 import MagneticButton from '../components/reactbits/MagneticButton';
 import AnimatedCard from '../components/reactbits/AnimatedCard';
 import ElectricBorder from '../components/reactbits/ElectricBorder';
+import { useSocketContext } from '../contexts/SocketContext';
 
 export default function ServiceManagement() {
   const [selectedService, setSelectedService] = useState(null);
   const [activeTab, setActiveTab] = useState('endpoints'); // endpoints, rateLimit, loadBalancing, cache
   const queryClient = useQueryClient();
+  const { serviceStatuses } = useSocketContext();
+
+  console.log("Service Statuses:", serviceStatuses);
 
   // Fetch services
   const { data: services } = useQuery({
@@ -49,6 +53,12 @@ export default function ServiceManagement() {
       setSelectedService(services[0].name);
     }
   }, [services, selectedService]);
+
+  // Get service status with fallback
+  const getServiceStatus = (service) => {
+    // Priority: Socket status > Service status > 'down'
+    return serviceStatuses[service.name] || service.status || 'down';
+  };
 
   // Ensure services is always an array
   const servicesList = Array.isArray(services) ? services : [];
@@ -106,7 +116,7 @@ export default function ServiceManagement() {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-semibold text-white">{service.name}</span>
-                    <StatusBadge status={service.status} />
+                    <StatusBadge status={getServiceStatus(service)} />
                   </div>
                   <p className="text-xs text-slate-400 truncate">{service.url}</p>
                 </motion.button>

@@ -51,7 +51,7 @@ api.interceptors.response.use(
 export const servicesApi = {
   getAll: async () => {
     const response = await api.get('/services');
-    return response.data;
+    return response.data.data || response.data || [];
   },
   getOne: async (name) => {
     const response = await api.get(`/services/${name}`);

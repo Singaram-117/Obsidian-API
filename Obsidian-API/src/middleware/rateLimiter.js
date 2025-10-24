@@ -9,7 +9,7 @@ import logger from '../utils/logger.js';
  */
 export const apiLimiter = rateLimit({
   windowMs: config.get('rateLimit.windowMs'),
-  max: config.get('rateLimit.maxRequests'),
+  max: 100||config.get('rateLimit.maxRequests'),
   message: {
     error: 'Too many requests from this IP, please try again later.',
     retryAfter: config.get('rateLimit.windowMs') / 1000,

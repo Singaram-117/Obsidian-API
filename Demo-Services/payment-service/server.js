@@ -5,6 +5,11 @@ const app = express();
 const PORT = process.env.PORT || 4003;
 const INSTANCE_ID = process.env.INSTANCE_ID || '1';
 
+// Simulate different failure scenarios
+let failureMode = 'normal';
+let requestCount = 0;
+let isOverloaded = false;
+
 app.use(cors());
 app.use(express.json());
 
@@ -12,27 +17,109 @@ app.use(express.json());
 let payments = [];
 let paymentIdCounter = 1;
 
-// Health check
+// Health check with failure simulation
 app.get('/health', (req, res) => {
+  requestCount++;
+  
+  if (failureMode === 'fail') {
+    return res.status(500).json({
+      service: 'payments',
+      status: 'unhealthy',
+      error: 'Payment service failing',
+      instance: INSTANCE_ID
+    });
+  }
+  
+  if (failureMode === 'slow') {
+    setTimeout(() => {
+      res.json({
+        service: 'payments',
+        status: 'degraded',
+        responseTime: 'slow',
+        instance: INSTANCE_ID
+      });
+    }, 5000);
+    return;
+  }
+  
+  if (isOverloaded) {
+    return res.status(503).json({
+      service: 'payments',
+      status: 'overloaded',
+      error: 'Payment service under heavy load',
+      instance: INSTANCE_ID
+    });
+  }
+  
   res.json({
+    service: 'payments',
     status: 'healthy',
-    service: 'payment-service',
+    requestCount,
     instance: INSTANCE_ID,
-    timestamp: new Date().toISOString(),
+    timestamp: new Date().toISOString()
   });
 });
 
-// Get all payments
+// Get all payments with comprehensive failure simulation
 app.get('/api/payments', (req, res) => {
-  // Simulate some processing time
+  requestCount++;
+  
+  // Simulate different failure scenarios
+  if (failureMode === 'fail') {
+    const errorTypes = [
+      { status: 500, message: 'Payment gateway connection failed' },
+      { status: 503, message: 'Payment service unavailable' },
+      { status: 502, message: 'External payment processor error' },
+      { status: 504, message: 'Payment gateway timeout' },
+      { status: 402, message: 'Payment processing failed' }
+    ];
+    
+    const randomError = errorTypes[Math.floor(Math.random() * errorTypes.length)];
+    return res.status(randomError.status).json({
+      success: false,
+      error: randomError.message,
+      instance: INSTANCE_ID,
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  if (failureMode === 'slow') {
+    const delay = Math.random() * 5000 + 4000; // 4-9 seconds (slowest)
+    setTimeout(() => {
+      res.json({
+        success: true,
+        instance: INSTANCE_ID,
+        total: payments.length,
+        data: payments,
+        warning: `Very slow payment response (${Math.round(delay)}ms) - processing delay`,
+        responseTime: delay
+      });
+    }, delay);
+    return;
+  }
+  
+  if (isOverloaded) {
+    return res.status(503).json({
+      success: false,
+      error: 'Payment service overloaded - too many transactions',
+      instance: INSTANCE_ID,
+      retryAfter: 120
+    });
+  }
+  
+  // Normal operation with realistic processing time (slowest service)
+  const processingTime = Math.random() * 400 + 200; // 200-600ms
   setTimeout(() => {
     res.json({
       success: true,
       instance: INSTANCE_ID,
       total: payments.length,
       data: payments,
+      requestCount,
+      responseTime: processingTime,
+      timestamp: new Date().toISOString()
     });
-  }, Math.random() * 200 + 150); // 150-350ms (slowest service)
+  }, processingTime);
 });
 
 // Get payment by ID
@@ -172,7 +259,43 @@ app.get('/api/payments/stats/summary', (req, res) => {
   });
 });
 
+// Failure simulation endpoints
+app.post('/payments/fail', (req, res) => {
+  failureMode = 'fail';
+  res.json({ message: 'Payment service set to fail mode', instance: INSTANCE_ID });
+});
+
+app.post('/payments/slow', (req, res) => {
+  failureMode = 'slow';
+  res.json({ message: 'Payment service set to slow mode', instance: INSTANCE_ID });
+});
+
+app.post('/payments/overload', (req, res) => {
+  isOverloaded = true;
+  res.json({ message: 'Payment service set to overload mode', instance: INSTANCE_ID });
+});
+
+app.post('/payments/recover', (req, res) => {
+  failureMode = 'normal';
+  isOverloaded = false;
+  res.json({ message: 'Payment service recovered', instance: INSTANCE_ID });
+});
+
+app.get('/payments/status', (req, res) => {
+  res.json({
+    failureMode,
+    isOverloaded,
+    requestCount,
+    instance: INSTANCE_ID
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Payment Service (Instance ${INSTANCE_ID}) running on port ${PORT}`);
+  console.log(`📊 Failure simulation endpoints:`);
+  console.log(`   POST /payments/fail - Simulate failures`);
+  console.log(`   POST /payments/slow - Simulate slow responses`);
+  console.log(`   POST /payments/overload - Simulate overload`);
+  console.log(`   POST /payments/recover - Recover from failures`);
 });
 

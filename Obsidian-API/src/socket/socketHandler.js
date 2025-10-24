@@ -57,6 +57,7 @@ export const initializeSocket = (httpServer) => {
         serviceName,
       });
     });
+
   });
 
   // Listen to event emitter and broadcast to clients

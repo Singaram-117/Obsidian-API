@@ -22,25 +22,40 @@ export default function Metrics() {
   const [selectedService, setSelectedService] = useState('all');
 
   // Fetch services
-  const { data: servicesData } = useQuery({
+  const { data: servicesData, isLoading: servicesLoading } = useQuery({
     queryKey: ['services'],
-    queryFn: servicesApi.getAll,
+    queryFn: async () => {
+      try {
+        const data = await servicesApi.getAll();
+        return data?.data || data || [];
+      } catch (error) {
+        console.error('Failed to fetch services:', error);
+        return [];
+      }
+    },
     refetchInterval: 5000,
   });
 
   // Fetch aggregated metrics
-  const { data: metricsData } = useQuery({
+  const { data: metricsData, isLoading: metricsLoading } = useQuery({
     queryKey: ['metrics-aggregate', selectedService],
-    queryFn: () =>
-      metricsApi.getAggregated({
-        serviceName: selectedService === 'all' ? undefined : selectedService,
-        interval: 'minute',
-      }),
+    queryFn: async () => {
+      try {
+        const data = await metricsApi.getAggregated({
+          serviceName: selectedService === 'all' ? undefined : selectedService,
+          interval: 'minute',
+        });
+        return data?.data || data || [];
+      } catch (error) {
+        console.error('Failed to fetch metrics:', error);
+        return [];
+      }
+    },
     refetchInterval: 10000,
   });
 
-  const services = servicesData?.data || [];
-  const metrics = metricsData?.data || [];
+  const services = Array.isArray(servicesData) ? servicesData : [];
+  const metrics = Array.isArray(metricsData) ? metricsData : [];
 
   // Calculate summary stats
   const totalRequests = services.reduce(
@@ -51,27 +66,55 @@ export default function Metrics() {
     (sum, s) => sum + (s.metrics?.failedRequests || 0),
     0
   );
-  const avgResponseTime =
-    services.reduce(
-      (sum, s) => sum + (s.metrics?.averageResponseTime || 0),
-      0
-    ) / (services.length || 1);
+  const avgResponseTime = services.length > 0
+    ? services.reduce(
+        (sum, s) => sum + (s.metrics?.averageResponseTime || 0),
+        0
+      ) / services.length
+    : 0;
   const successRate = totalRequests > 0 
     ? ((totalRequests - totalFailures) / totalRequests * 100).toFixed(1)
     : 100;
 
   // Prepare chart data
   const responseTimeData = services.map((service) => ({
-    name: service.name,
+    name: service.name || 'Unknown',
     responseTime: service.metrics?.averageResponseTime || 0,
   }));
 
   const requestsData = services.map((service) => ({
-    name: service.name,
+    name: service.name || 'Unknown',
     total: service.metrics?.totalRequests || 0,
     successful: service.metrics?.successfulRequests || 0,
     failed: service.metrics?.failedRequests || 0,
   }));
+
+  // Show loading state
+  if (servicesLoading) {
+    return (
+      <div className="space-y-8 p-6">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <h1 className="text-4xl font-merriweather font-bold gradient-text flex items-center gap-3">
+            <Activity className="w-10 h-10" />
+            Performance Metrics
+          </h1>
+          <p className="mt-3 text-gray-400 font-inter text-lg">
+            Loading performance metrics...
+          </p>
+        </motion.div>
+        <div className="grid gap-6 md:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Card key={i} className="p-6 animate-pulse">
+              <div className="h-20 bg-gray-700/50 rounded-xl"></div>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 p-6">
@@ -160,11 +203,12 @@ export default function Metrics() {
             value={selectedService}
             onChange={(e) => setSelectedService(e.target.value)}
             className="rounded-xl border border-gray-700 bg-gray-800/50 px-5 py-3 text-white font-inter focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all md:w-64"
+            disabled={servicesLoading}
           >
             <option value="all">All Services</option>
             {services.map((service) => (
-              <option key={service.name} value={service.name}>
-                {service.name}
+              <option key={service.name || service._id} value={service.name}>
+                {service.name || 'Unknown Service'}
               </option>
             ))}
           </select>
@@ -172,57 +216,69 @@ export default function Metrics() {
       </Card>
 
       {/* Charts */}
-      <div className="grid gap-8 lg:grid-cols-2">
-        {/* Response Time Chart */}
-        <Card className="p-8">
-          <div className="pb-6 mb-6 border-b border-gray-800">
-            <h2 className="text-2xl font-merriweather font-bold text-white">Average Response Time</h2>
-          </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={responseTimeData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="name" stroke="#94a3b8" style={{ fontSize: '12px' }} />
-              <YAxis stroke="#94a3b8" style={{ fontSize: '12px' }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1e293b',
-                  border: '1px solid #334155',
-                  borderRadius: '12px',
-                  padding: '12px',
-                }}
-                labelStyle={{ color: '#fff', fontWeight: 'bold' }}
-              />
-              <Bar dataKey="responseTime" fill="#3b82f6" name="Response Time (ms)" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
+      {services.length > 0 ? (
+        <div className="grid gap-8 lg:grid-cols-2">
+          {/* Response Time Chart */}
+          <Card className="p-8">
+            <div className="pb-6 mb-6 border-b border-gray-800">
+              <h2 className="text-2xl font-merriweather font-bold text-white">Average Response Time</h2>
+            </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={responseTimeData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="name" stroke="#94a3b8" style={{ fontSize: '12px' }} />
+                <YAxis stroke="#94a3b8" style={{ fontSize: '12px' }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #334155',
+                    borderRadius: '12px',
+                    padding: '12px',
+                  }}
+                  labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+                />
+                <Bar dataKey="responseTime" fill="#3b82f6" name="Response Time (ms)" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
 
-        {/* Requests Chart */}
+          {/* Requests Chart */}
+          <Card className="p-8">
+            <div className="pb-6 mb-6 border-b border-gray-800">
+              <h2 className="text-2xl font-merriweather font-bold text-white">Request Statistics</h2>
+            </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={requestsData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="name" stroke="#94a3b8" style={{ fontSize: '12px' }} />
+                <YAxis stroke="#94a3b8" style={{ fontSize: '12px' }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #334155',
+                    borderRadius: '12px',
+                    padding: '12px',
+                  }}
+                  labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+                />
+                <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                <Bar dataKey="successful" fill="#10b981" name="Successful" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="failed" fill="#ef4444" name="Failed" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
+        </div>
+      ) : (
         <Card className="p-8">
-          <div className="pb-6 mb-6 border-b border-gray-800">
-            <h2 className="text-2xl font-merriweather font-bold text-white">Request Statistics</h2>
+          <div className="text-center py-12">
+            <Activity className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+            <h3 className="text-xl font-merriweather font-bold text-gray-400 mb-2">No Services Found</h3>
+            <p className="text-gray-500 font-inter">
+              Register some services to see performance metrics and analytics.
+            </p>
           </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={requestsData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="name" stroke="#94a3b8" style={{ fontSize: '12px' }} />
-              <YAxis stroke="#94a3b8" style={{ fontSize: '12px' }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1e293b',
-                  border: '1px solid #334155',
-                  borderRadius: '12px',
-                  padding: '12px',
-                }}
-                labelStyle={{ color: '#fff', fontWeight: 'bold' }}
-              />
-              <Legend wrapperStyle={{ paddingTop: '20px' }} />
-              <Bar dataKey="successful" fill="#10b981" name="Successful" radius={[8, 8, 0, 0]} />
-              <Bar dataKey="failed" fill="#ef4444" name="Failed" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
         </Card>
-      </div>
+      )}
 
       {/* Service Metrics Table */}
       <Card className="p-8">
@@ -254,42 +310,50 @@ export default function Metrics() {
               </tr>
             </thead>
             <tbody>
-              {services.map((service, index) => {
-                const total = service.metrics?.totalRequests || 0;
-                const successful = service.metrics?.successfulRequests || 0;
-                const failed = service.metrics?.failedRequests || 0;
-                const successRate = total > 0 ? (successful / total) * 100 : 0;
-                const avgResponse = service.metrics?.averageResponseTime || 0;
+              {services.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-400 font-inter">
+                    {servicesLoading ? 'Loading services...' : 'No services found'}
+                  </td>
+                </tr>
+              ) : (
+                services.map((service, index) => {
+                  const total = service.metrics?.totalRequests || 0;
+                  const successful = service.metrics?.successfulRequests || 0;
+                  const failed = service.metrics?.failedRequests || 0;
+                  const successRate = total > 0 ? (successful / total) * 100 : 0;
+                  const avgResponse = service.metrics?.averageResponseTime || 0;
 
-                return (
-                  <motion.tr
-                    key={service.name}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="border-b border-gray-800 last:border-0 hover:bg-gray-800/30 transition-colors"
-                  >
-                    <td className="px-6 py-4 text-sm text-white font-inter font-semibold">
-                      {service.name}
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-300 font-mono">
-                      {total.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm text-green-400 font-mono font-semibold">
-                      {successful.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm text-red-400 font-mono font-semibold">
-                      {failed.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-300 font-mono">
-                      {successRate.toFixed(1)}%
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-300 font-mono">
-                      {avgResponse.toFixed(0)}ms
-                    </td>
-                  </motion.tr>
-                );
-              })}
+                  return (
+                    <motion.tr
+                      key={service.name || service._id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="border-b border-gray-800 last:border-0 hover:bg-gray-800/30 transition-colors"
+                    >
+                      <td className="px-6 py-4 text-sm text-white font-inter font-semibold">
+                        {service.name || 'Unknown Service'}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-gray-300 font-mono">
+                        {total.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-green-400 font-mono font-semibold">
+                        {successful.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-red-400 font-mono font-semibold">
+                        {failed.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-gray-300 font-mono">
+                        {successRate.toFixed(1)}%
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-gray-300 font-mono">
+                        {avgResponse.toFixed(0)}ms
+                      </td>
+                    </motion.tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

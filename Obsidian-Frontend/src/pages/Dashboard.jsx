@@ -19,7 +19,7 @@ export default function Dashboard() {
     queryFn: async () => {
       try {
         const data = await servicesApi.getAll();
-        return data?.data || data || [];
+        return Array.isArray(data) ? data : [];
       } catch (error) {
         console.error('Failed to fetch services:', error);
         return [];
@@ -28,14 +28,12 @@ export default function Dashboard() {
     refetchInterval: 5000,
   });
 
-  const services = servicesData || [];
-
   const { data: eventsData, isLoading: eventsLoading } = useQuery({
     queryKey: ['recent-events'],
     queryFn: async () => {
       try {
         const data = await eventsApi.getAll({ limit: 10 });
-        return data?.data || data || [];
+        return Array.isArray(data) ? data : [];
       } catch (error) {
         console.error('Failed to fetch events:', error);
         return [];
@@ -44,7 +42,25 @@ export default function Dashboard() {
     refetchInterval: 3000,
   });
 
-  const recentEvents = eventsData || [];
+  const recentEvents = Array.isArray(eventsData) ? eventsData : [];
+
+  const services = Array.isArray(servicesData) ? servicesData : [];
+
+  // Debug logging
+  console.log('Dashboard - servicesData:', servicesData);
+  console.log('Dashboard - services:', services);
+
+  // Show loading state if data is still loading
+  if (servicesLoading) {
+    return (
+      <div className="space-y-8 p-6">
+        <div className="text-center py-12">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400 font-inter">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     const healthyCount = services.filter(s => s.status === 'healthy').length;

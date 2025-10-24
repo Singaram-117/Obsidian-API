@@ -159,6 +159,8 @@ router.post(
       });
     }
     
+    const startTime = Date.now();
+    
     try {
       const result = await circuitBreakerService.execute(
         service.name,
@@ -167,7 +169,11 @@ router.post(
         { method, data, headers }
       );
       
-      // Update metrics
+      const responseTime = Date.now() - startTime;
+      const currentAvg = service.metrics?.averageResponseTime || 0;
+      const totalRequests = (service.metrics?.totalRequests || 0) + 1;
+      const newAvg = ((currentAvg * (totalRequests - 1)) + responseTime) / totalRequests;
+
       await Service.findOneAndUpdate(
         { name },
         {
@@ -177,6 +183,7 @@ router.post(
           },
           $set: {
             'metrics.lastRequestTime': new Date(),
+            'metrics.averageResponseTime': Math.round(newAvg),
           },
         }
       );
@@ -188,7 +195,12 @@ router.post(
         status: result.status,
       });
     } catch (error) {
-      // Update metrics
+      // Update metrics for failed requests
+      const responseTime = Date.now() - startTime;
+      const currentAvg = service.metrics?.averageResponseTime || 0;
+      const totalRequests = (service.metrics?.totalRequests || 0) + 1;
+      const newAvg = ((currentAvg * (totalRequests - 1)) + responseTime) / totalRequests;
+
       await Service.findOneAndUpdate(
         { name },
         {
@@ -198,6 +210,7 @@ router.post(
           },
           $set: {
             'metrics.lastRequestTime': new Date(),
+            'metrics.averageResponseTime': Math.round(newAvg),
           },
         }
       );
@@ -284,6 +297,4 @@ router.post(
     });
   })
 );
-
 export default router;
-

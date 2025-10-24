@@ -1,27 +1,28 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Layout({ children }) {
   const location = useLocation();
+  const { user, logout, isAdmin } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navItems = [
-    { path: '/app/dashboard', icon: '🏠', label: 'Dashboard' },
-    { path: '/app/services', icon: '🎯', label: 'Services' },
-    { path: '/app/manage', icon: '🎛️', label: 'Manage' },
-    { path: '/app/events', icon: '📡', label: 'Events' },
-    { path: '/app/metrics', icon: '📊', label: 'Metrics' },
-    { path: '/app/alerts', icon: '🔔', label: 'Alerts' },
-    { path: '/app/recommendations', icon: '💡', label: 'Recommendations' },
-  { path: '/app/integrations', icon: '🔌', label: 'Integrations' },
-  { path: '/app/code-analyzer', icon: '🤖', label: 'Code Analyzer' },
-  { path: '/app/chaos', icon: '💣', label: 'Chaos Engineering' },
-  { path: '/app/admin', icon: '*', label: 'Admin' },
+    { path: '/app/dashboard', icon: '', label: 'Dashboard' },
+    { path: '/app/services', icon: '', label: 'Services' },
+    { path: '/app/manage', icon: '', label: 'Manage' },
+    { path: '/app/events', icon: '', label: 'Events' },
+    { path: '/app/metrics', icon: '', label: 'Metrics' },
+    { path: '/app/alerts', icon: '', label: 'Alerts' },
+    { path: '/app/recommendations', icon: '', label: 'Recommendations' },
+    { path: '/app/integrations', icon: '', label: 'Integrations' },
+    { path: '/app/code-analyzer', icon: '', label: 'Code Analyzer' },
+    { path: '/app/chaos', icon: '', label: 'Chaos Engineering' },
+    ...(isAdmin() ? [{ path: '/app/admin', icon: '', label: 'Admin' }] : []),
   ];
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    logout();
     window.location.href = '/login';
   };
 
@@ -63,14 +64,19 @@ export default function Layout({ children }) {
             <div className="flex items-center space-x-3">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-medium text-white">
-                  {JSON.parse(localStorage.getItem('user') || '{}').name || 'Admin'}
+                  {user?.name || 'User'}
                 </p>
                 <p className="text-xs text-gray-400">
-                  {JSON.parse(localStorage.getItem('user') || '{}').email || 'admin@obsidian.dev'}
+                  {user?.email || 'user@obsidian.dev'}
                 </p>
+                {isAdmin() && (
+                  <span className="inline-block px-2 py-1 text-xs bg-purple-500/20 text-purple-300 rounded-full">
+                    Admin
+                  </span>
+                )}
               </div>
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-blue-600 flex items-center justify-center font-bold text-white">
-                {(JSON.parse(localStorage.getItem('user') || '{}').name || 'A')[0].toUpperCase()}
+                {(user?.name || 'U')[0].toUpperCase()}
               </div>
               <button
                 onClick={handleLogout}

@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import api from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 import MagneticButton from '../components/reactbits/MagneticButton';
 import ElectricBorder from '../components/reactbits/ElectricBorder';
 
 export default function Register() {
   const navigate = useNavigate();
+  const { register, isAuthenticated, loading: authLoading } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -17,9 +18,29 @@ export default function Register() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate('/app/dashboard');
+    }
+  }, [isAuthenticated, authLoading, navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Validate all fields
+    if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
@@ -36,25 +57,37 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const response = await api.post('/auth/register', {
+      const result = await register({
         name: formData.name,
         email: formData.email,
         password: formData.password,
         organization: formData.organization,
       });
 
-      // Store token
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-
-      // Redirect to dashboard
-      navigate('/app/dashboard');
+      if (result.success) {
+        navigate('/app/dashboard');
+      } else {
+        setError(result.error);
+      }
     } catch (error) {
-      setError(error.response?.data?.error || 'Registration failed. Please try again.');
+      console.error('Registration error:', error);
+      setError('Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  // Show loading if auth is still loading
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400 font-inter">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6 sm:p-8 relative overflow-hidden">

@@ -72,10 +72,10 @@ app.get('/', (req, res) => {
 
 // Health check routes (no rate limiting)
 app.use('/health', healthRoutes);
+app.use('/api', apiLimiter);
 app.use('/api/health', healthRoutes);
 
 // Apply rate limiting to API routes
-app.use('/api', apiLimiter);
 
 // API routes
 app.use('/api/auth', authRoutes);
@@ -210,4 +210,3 @@ const startServer = async () => {
 startServer();
 
 export { app, httpServer, io };
-

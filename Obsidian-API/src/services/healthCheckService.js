@@ -77,6 +77,8 @@ class HealthCheckService {
         service.healthCheck.endpoint,
         { timeout: service.healthCheck.timeout }
       );
+
+      console.log(result)
       
       const responseTime = Date.now() - startTime;
       const isHealthy = result.success && result.status >= 200 && result.status < 300;
@@ -85,12 +87,34 @@ class HealthCheckService {
       const previousStatus = service.status;
       const newStatus = isHealthy ? 'healthy' : 'degraded';
       
+      // Calculate metrics updates
+      const metricsUpdate = {
+        $inc: { 'metrics.totalRequests': 1 },
+        $set: {
+          'metrics.lastRequestTime': new Date(),
+        }
+      };
+
+      if (isHealthy) {
+        metricsUpdate.$inc['metrics.successfulRequests'] = 1;
+      } else {
+        metricsUpdate.$inc['metrics.failedRequests'] = 1;
+      }
+
+      // Update average response time
+      const currentAvg = service.metrics?.averageResponseTime || 0;
+      const totalRequests = (service.metrics?.totalRequests || 0) + 1;
+      const newAvg = ((currentAvg * (totalRequests - 1)) + responseTime) / totalRequests;
+      metricsUpdate.$set['metrics.averageResponseTime'] = Math.round(newAvg);
+      
+      console.log(`Service ${service.name}: Response time ${responseTime}ms, New avg: ${Math.round(newAvg)}ms`);
+
       await Service.findOneAndUpdate(
         { name: service.name },
         {
           status: newStatus,
           'healthCheck.lastCheck': new Date(),
-          $inc: { 'metrics.totalRequests': 1 },
+          ...metricsUpdate,
         }
       );
       

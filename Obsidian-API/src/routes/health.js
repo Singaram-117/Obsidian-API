@@ -3,8 +3,10 @@ import mongoose from 'mongoose';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import circuitBreakerService from '../services/circuitBreakerService.js';
 import kafkaService from '../services/kafkaService.js';
+import { apiLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
+router.use(apiLimiter);
 
 /**
  * @route   GET /health
