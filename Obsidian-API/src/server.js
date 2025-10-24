@@ -25,6 +25,7 @@ import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import githubRoutes from './routes/github.js';
 import codeAnalyzerRoutes from './routes/codeAnalyzer.js';
+import microserviceManagementRoutes from './routes/microserviceManagement.js';
 
 /**
  * Initialize Express App
@@ -88,6 +89,7 @@ app.use('/api/queue', queueRoutes);
 app.use('/api/integrations', integrationsRoutes);
 app.use('/api/alerts', alertsRoutes);
 app.use('/api/recommendations', recommendationsRoutes);
+app.use('/api/microservice', microserviceManagementRoutes);
 
 // Error handling
 app.use(notFoundHandler);

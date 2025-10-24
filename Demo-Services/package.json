@@ -1,0 +1,13 @@
+{
+  "name": "demo-services",
+  "version": "1.0.0",
+  "description": "Demo services and traffic generator for Obsidian MROP",
+  "main": "traffic-generator.js",
+  "scripts": {
+    "traffic": "node traffic-generator.js"
+  },
+  "keywords": ["obsidian", "mrop", "demo", "microservices"],
+  "author": "",
+  "license": "MIT"
+}
+

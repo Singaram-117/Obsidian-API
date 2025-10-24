@@ -8,6 +8,7 @@ export default function Layout({ children }) {
   const navItems = [
     { path: '/app/dashboard', icon: '🏠', label: 'Dashboard' },
     { path: '/app/services', icon: '🎯', label: 'Services' },
+    { path: '/app/manage', icon: '🎛️', label: 'Manage' },
     { path: '/app/events', icon: '📡', label: 'Events' },
     { path: '/app/metrics', icon: '📊', label: 'Metrics' },
     { path: '/app/alerts', icon: '🔔', label: 'Alerts' },
@@ -15,7 +16,7 @@ export default function Layout({ children }) {
   { path: '/app/integrations', icon: '🔌', label: 'Integrations' },
   { path: '/app/code-analyzer', icon: '🤖', label: 'Code Analyzer' },
   { path: '/app/chaos', icon: '💣', label: 'Chaos Engineering' },
-  { path: '/app/admin', icon: '👑', label: 'Admin' },
+  { path: '/app/admin', icon: '*', label: 'Admin' },
   ];
 
   const handleLogout = () => {

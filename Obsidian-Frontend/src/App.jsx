@@ -13,6 +13,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import AdminDashboard from './pages/AdminDashboard';
 import CodeAnalyzer from './pages/CodeAnalyzer';
+import ServiceManagement from './pages/ServiceManagement';
 import { SocketProvider } from './contexts/SocketContext';
 
 function App() {
@@ -35,6 +36,7 @@ function App() {
                 <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/services" element={<Services />} />
+                <Route path="/manage" element={<ServiceManagement />} />
                 <Route path="/events" element={<Events />} />
                 <Route path="/metrics" element={<Metrics />} />
                 <Route path="/chaos" element={<ChaosEngineering />} />

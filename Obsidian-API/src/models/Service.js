@@ -93,6 +93,82 @@ const serviceSchema = new mongoose.Schema(
       type: Map,
       of: String,
     },
+    // Discovered endpoints
+    endpoints: [
+      {
+        path: String,
+        method: String,
+        summary: String,
+        description: String,
+        tags: [String],
+        parameters: Array,
+        responses: [String],
+      },
+    ],
+    endpointsDiscoveredAt: Date,
+    // Rate limiting configuration
+    rateLimit: {
+      enabled: {
+        type: Boolean,
+        default: false,
+      },
+      requestsPerMinute: {
+        type: Number,
+        default: 100,
+      },
+    },
+    endpointRateLimits: {
+      type: Map,
+      of: mongoose.Schema.Types.Mixed,
+    },
+    clientRateLimit: {
+      enabled: {
+        type: Boolean,
+        default: false,
+      },
+      requestsPerMinute: {
+        type: Number,
+        default: 60,
+      },
+    },
+    // Caching configuration
+    cache: {
+      enabled: {
+        type: Boolean,
+        default: false,
+      },
+      ttl: {
+        type: Number,
+        default: 60000, // 1 minute
+      },
+      endpoints: {
+        type: Map,
+        of: mongoose.Schema.Types.Mixed,
+      },
+    },
+    // Load balancing configuration
+    loadBalancing: {
+      enabled: {
+        type: Boolean,
+        default: false,
+      },
+      strategy: {
+        type: String,
+        enum: [
+          'round-robin',
+          'least-connections',
+          'weighted-round-robin',
+          'weighted-response-time',
+          'random',
+          'ip-hash',
+        ],
+        default: 'round-robin',
+      },
+      stickySession: {
+        type: Boolean,
+        default: false,
+      },
+    },
   },
   {
     timestamps: true,

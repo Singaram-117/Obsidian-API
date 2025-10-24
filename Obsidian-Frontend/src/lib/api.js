@@ -198,4 +198,92 @@ export const githubApi = {
   },
 };
 
+// Microservice Management API
+export const microserviceApi = {
+  // Endpoints
+  discoverEndpoints: async (serviceName) => {
+    const response = await api.post(`/microservice/${serviceName}/discover-endpoints`);
+    return response.data;
+  },
+  getEndpoints: async (serviceName) => {
+    const response = await api.get(`/microservice/${serviceName}/endpoints`);
+    return response.data;
+  },
+  
+  // Rate Limiting
+  updateServiceRateLimit: async (serviceName, config) => {
+    const response = await api.put(`/microservice/${serviceName}/rate-limit`, config);
+    return response.data;
+  },
+  updateEndpointRateLimit: async (serviceName, endpoint, config) => {
+    const response = await api.put(`/microservice/${serviceName}/endpoint-rate-limit`, {
+      endpoint,
+      ...config,
+    });
+    return response.data;
+  },
+  updateClientRateLimit: async (serviceName, config) => {
+    const response = await api.put(`/microservice/${serviceName}/client-rate-limit`, config);
+    return response.data;
+  },
+  getRateLimitStatus: async (serviceName) => {
+    const response = await api.get(`/microservice/${serviceName}/rate-limit-status`);
+    return response.data;
+  },
+  resetRateLimits: async (serviceName) => {
+    const response = await api.post(`/microservice/${serviceName}/rate-limit-reset`);
+    return response.data;
+  },
+  
+  // Load Balancing
+  registerInstance: async (serviceName, instanceData) => {
+    const response = await api.post(`/microservice/${serviceName}/instances`, instanceData);
+    return response.data;
+  },
+  getInstances: async (serviceName) => {
+    const response = await api.get(`/microservice/${serviceName}/instances`);
+    return response.data;
+  },
+  deleteInstance: async (serviceName, instanceId) => {
+    const response = await api.delete(`/microservice/${serviceName}/instances/${instanceId}`);
+    return response.data;
+  },
+  updateInstanceStatus: async (serviceName, instanceId, action) => {
+    const response = await api.put(`/microservice/${serviceName}/instances/${instanceId}/status`, {
+      action,
+    });
+    return response.data;
+  },
+  updateLoadBalancing: async (serviceName, config) => {
+    const response = await api.put(`/microservice/${serviceName}/load-balancing`, config);
+    return response.data;
+  },
+  getInstanceStats: async (serviceName) => {
+    const response = await api.get(`/microservice/${serviceName}/instances/stats`);
+    return response.data;
+  },
+  
+  // Caching
+  updateCache: async (serviceName, config) => {
+    const response = await api.put(`/microservice/${serviceName}/cache`, config);
+    return response.data;
+  },
+  getCacheStats: async (serviceName) => {
+    const response = await api.get(`/microservice/${serviceName}/cache/stats`);
+    return response.data;
+  },
+  invalidateCache: async (serviceName, endpoint = null) => {
+    const response = await api.post(`/microservice/${serviceName}/cache/invalidate`, {
+      endpoint,
+    });
+    return response.data;
+  },
+  
+  // Overview
+  getOverview: async (serviceName) => {
+    const response = await api.get(`/microservice/${serviceName}/overview`);
+    return response.data;
+  },
+};
+
 export default api;

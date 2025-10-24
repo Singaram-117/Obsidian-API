@@ -18,8 +18,8 @@ export default function Dashboard() {
     queryKey: ['services'],
     queryFn: async () => {
       try {
-        const response = await servicesApi.getAll();
-        return response.data || [];
+        const data = await servicesApi.getAll();
+        return data?.data || data || [];
       } catch (error) {
         console.error('Failed to fetch services:', error);
         return [];
@@ -34,8 +34,8 @@ export default function Dashboard() {
     queryKey: ['recent-events'],
     queryFn: async () => {
       try {
-        const response = await eventsApi.getAll({ limit: 10 });
-        return response.data || [];
+        const data = await eventsApi.getAll({ limit: 10 });
+        return data?.data || data || [];
       } catch (error) {
         console.error('Failed to fetch events:', error);
         return [];
