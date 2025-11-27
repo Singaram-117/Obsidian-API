@@ -2,42 +2,36 @@
 
 <div align="center">
 
-![Obsidian MROP Banner](https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&h=400&fit=crop&q=80)
-
 ### Microservice Resilience & Observability Platform
 
 **Monitor · Protect · Optimize Your Distributed Systems**
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/React-18+-61DAFB.svg)](https://reactjs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248.svg)](https://www.mongodb.com/)
-
-[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Demo](#-demo)
 
 </div>
 
 ---
 
-## 🎯 What is Obsidian MROP?
+## What is Obsidian MROP?
 
-Obsidian is a **next-generation microservice management platform** that acts as an intelligent protective layer for your distributed systems. It prevents cascading failures, provides real-time observability, and helps you build resilient architectures with industry-standard design patterns.
+Obsidian is a **next-generation try-out microservice management platform** that acts as an intelligent protective layer for your distributed systems. It prevents cascading failures, provides real-time observability, and helps you build resilient architectures with industry-standard design patterns.
 
 ### Why Obsidian?
 
-- 🛡️ **Prevent Cascading Failures** - Circuit breakers and bulkhead patterns protect your entire system
-- 🌐 **Monitor Global Services** - Track microservices anywhere, from localhost to production
-- 📖 **GitHub Integration** - Automatically fetch README, stats, and metadata
-- 🎨 **Beautiful UI** - Modern, animated dashboard with real-time updates
-- 🔌 **7 Integration Methods** - URL, SDK, Git, Consul, Eureka, Docker, Kubernetes
-- 🧠 **AI Recommendations** - Intelligent suggestions to improve system resilience
-- 💣 **Chaos Engineering** - Built-in failure simulation toolkit
+- **Prevent Cascading Failures** - Circuit breakers and bulkhead patterns protect your entire system
+- **Monitor Global Services** - Track microservices anywhere, from localhost to production
+- **GitHub Integration** - Automatically fetch README, stats, and metadata
+- **Beautiful UI** - Modern, animated dashboard with real-time updates
+- **5 Integration Methods** - URL, SDK, Git, Consul, Eureka
+- **AI Recommendations** - Intelligent suggestions to improve system resilience
+- **Chaos Engineering** - Built-in failure simulation toolkit
 
 ---
 
-## ✨ Features
+## Features
 
-### 🛡️ Resilience Patterns
+### Resilience Patterns
 
 <table>
 <tr>
@@ -109,12 +103,11 @@ const loadBalancer = new LoadBalancer({
 - ✅ Bulkhead Isolation
 - ✅ Fallback Handlers
 - ✅ Cache-Aside
-- ✅ Saga Pattern (Distributed Transactions)
 - ✅ Load Balancer (Round Robin, Least Connections, Weighted)
 - ✅ Timeout Handling
 - ✅ Retry with Exponential Backoff
 
-### 📊 Observability
+### Observability
 
 <div align="center">
 
@@ -123,14 +116,14 @@ const loadBalancer = new LoadBalancer({
 </div>
 
 **Real-time Monitoring:**
-- 📡 Live event streams via Socket.IO
-- 📈 Metrics aggregation and visualization
-- 📝 Centralized logging (Winston + MongoDB)
-- 🔔 Intelligent alerting system
-- 💡 AI-powered recommendations
-- ⚡ Health check orchestration
+- Live event streams via Socket.IO
+- Metrics aggregation and visualization
+- Centralized logging (Winston + MongoDB)
+- Intelligent alerting system
+- AI-powered recommendations
+- Health check orchestration
 
-### 🎨 Design Patterns
+### Design Patterns
 
 Obsidian implements **15+ industry-standard design patterns**:
 
@@ -144,12 +137,9 @@ Obsidian implements **15+ industry-standard design patterns**:
 | **Proxy** | Transparent resilience | Intercept and protect service calls |
 | **Facade** | Simplified API | Single interface to complex resilience features |
 | **Adapter** | External integrations | Prometheus, Grafana, Datadog adapters |
-
-[View Full Pattern Documentation →](./DESIGN_PATTERNS_COMPLETE.md)
-
 ---
 
-## 🌐 Global URL & GitHub Integration
+## Global URL & GitHub Integration
 
 ### Monitor Any Service, Anywhere
 
@@ -169,12 +159,12 @@ Obsidian implements **15+ industry-standard design patterns**:
 ### Automatic GitHub Integration
 
 When you provide a GitHub URL, Obsidian automatically:
-- 📖 Fetches the README
-- ⭐ Shows stars and forks
-- 🏷️ Displays topics and language
-- 👤 Shows repository owner avatar
-- 🚀 Gets latest release information
-- 🔗 Provides direct GitHub links
+- Fetches the README
+- Shows stars and forks
+- Displays topics and language
+- Shows repository owner avatar
+- Gets latest release information
+- Provides direct GitHub links
 
 <div align="center">
 
@@ -184,23 +174,14 @@ When you provide a GitHub URL, Obsidian automatically:
 
 ---
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Node.js 18+
-- MongoDB (local or Atlas)
-- Redis 6+
-- Git
-
-### 1️⃣ Clone the Repository
+### Clone the Repository
 
 ```bash
 git clone https://github.com/yourusername/Obsidian.git
 cd Obsidian
 ```
 
-### 2️⃣ Setup Backend
+### Setup Backend
 
 ```bash
 cd Obsidian-API
@@ -221,7 +202,7 @@ EOL
 npm start
 ```
 
-### 3️⃣ Setup Frontend
+### Setup Frontend
 
 ```bash
 cd Obsidian-Frontend
@@ -237,7 +218,7 @@ EOL
 npm run dev
 ```
 
-### 4️⃣ Create Admin User
+### Create Admin User
 
 ```bash
 # Using the API
@@ -251,24 +232,11 @@ curl -X POST http://localhost:5000/api/auth/register \
   }'
 ```
 
-### 5️⃣ Login and Explore! 🎉
+### Login and Explore!
 
 Open [http://localhost:5173](http://localhost:5173) and login with your credentials!
 
 ---
-
-## 📖 Documentation
-
-### Complete Guides
-
-- 📘 [Local Setup Guide](./LOCAL_SETUP_GUIDE.md) - Step-by-step installation
-- 🔧 [Integration Methods](./INTEGRATION_GUIDE.md) - All 7 integration options
-- 🏗️ [System Architecture](./ARCHITECTURE.md) - Technical architecture
-- 🎨 [Design Patterns](./DESIGN_PATTERNS_COMPLETE.md) - All implemented patterns
-- 🛡️ [Resilience Patterns](./RESILIENCE_PATTERNS_IMPLEMENTED.md) - Fault tolerance
-- 🔐 [Authentication Setup](./AUTH_SETUP_GUIDE.md) - JWT and user management
-- ⚡ [Activity Tracking](./HOW_IT_WORKS.md) - How monitoring works
-- 🎯 [Quick Reference](./QUICK_START.md) - Fast commands
 
 ### API Documentation
 
@@ -308,7 +276,7 @@ GET /api/metrics/service/my-service
 
 ---
 
-## 🎨 Beautiful UI
+## Beautiful UI
 
 <div align="center">
 
@@ -329,7 +297,7 @@ GET /api/metrics/service/my-service
 ### UI Features
 
 - ✨ **Gradient Backgrounds** - Animated color transitions
-- 💎 **Glass Morphism** - Frosted glass effects with backdrop blur
+- 💎 **Glassmorphism** - Frosted glass effects with backdrop blur
 - 🌟 **Neon Borders** - Glowing borders for status indicators
 - 🎈 **Floating Animations** - Smooth motion effects
 - 💫 **Pulse Effects** - Live indicators with rhythmic glow
@@ -343,33 +311,24 @@ GET /api/metrics/service/my-service
 
 Obsidian supports **7 different ways** to integrate your microservices:
 
-### 1. **Manual URL Registration** 🌐
+### 1. **Manual URL Registration**
 Register any service by URL (local or global)
 
-### 2. **SDK/Agent** 📦
+### 2. **SDK/Agent**
 Drop-in library for automatic registration
 ```bash
 npm install obsidian-sdk
 ```
 
-### 3. **Git Repository** 📂
+### 3. **Git Repository**
 Auto-deploy from GitHub/GitLab repositories
 
-### 4. **Service Discovery** 🔍
+### 4. **Service Discovery**
 - Consul integration
 - Eureka integration
 
-### 5. **Container Orchestration** 🐳
-- Docker container discovery
-- Kubernetes pod monitoring
-
-### 6. **GitHub API** 📖
+### 5. **GitHub API**
 Fetch repository info, README, and stats
-
-### 7. **Webhooks** 🪝
-Push-based updates from CI/CD
-
-[Learn More →](./INTEGRATION_GUIDE.md)
 
 ---
 
@@ -377,15 +336,15 @@ Push-based updates from CI/CD
 
 Test your system's resilience with built-in chaos tools:
 
-- 🔥 **Failure Injection** - Simulate service failures
-- ⏱️ **Latency Injection** - Add artificial delays
-- 💥 **Error Rate Manipulation** - Increase error rates
-- 🔌 **Network Partitioning** - Simulate network splits
-- 📊 **Real-time Results** - See impact immediately
+-  **Failure Injection** - Simulate service failures
+-  **Latency Injection** - Add artificial delays
+-  **Error Rate Manipulation** - Increase error rates
+-  **Network Partitioning** - Simulate network splits
+-  **Real-time Results** - See impact immediately
 
 ---
 
-## 🏗️ Architecture
+##  Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -441,24 +400,23 @@ Test your system's resilience with built-in chaos tools:
 
 ---
 
-## 📊 What's Included
+## What's Included
 
-- ✅ **3 Repositories** - Frontend, API, Mock Service
-- ✅ **15+ Design Patterns** - Industry-standard implementations
-- ✅ **9 Resilience Patterns** - Production-ready fault tolerance
-- ✅ **7 Integration Methods** - Flexible service onboarding
-- ✅ **Real-time Dashboard** - Beautiful UI with live updates
-- ✅ **GitHub Integration** - Automatic repo information fetching
-- ✅ **Global URL Support** - Monitor services anywhere
-- ✅ **JWT Authentication** - Secure user management
-- ✅ **Admin Dashboard** - User and system management
-- ✅ **Chaos Engineering** - Built-in failure simulation
-- ✅ **AI Recommendations** - Intelligent optimization suggestions
-- ✅ **Complete Documentation** - Extensive guides and examples
+- **3 Repositories** - Frontend, API, Mock Service
+- **10 Design+Resilience Patterns** - Industry-standard implementations and Production-ready fault tolerance
+- **7 Integration Methods** - Flexible service onboarding
+- **Real-time Dashboard** - Beautiful UI with live updates
+- **GitHub Integration** - Automatic repo information fetching
+- **Global URL Support** - Monitor services anywhere
+- **JWT Authentication** - Secure user management
+- **Admin Dashboard** - User and system management
+- **Chaos Engineering** - Built-in failure simulation
+- **AI Recommendations** - Intelligent optimization suggestions
+- **Complete Documentation** - Extensive guides and examples
 
 ---
 
-## 🎯 Use Cases
+## Use Cases
 
 ### For Software Developers
 - Learn microservice design patterns
@@ -480,7 +438,7 @@ Test your system's resilience with built-in chaos tools:
 
 ---
 
-## 📈 Roadmap
+## Roadmap
 
 - [ ] GraphQL API support
 - [ ] Distributed tracing (OpenTelemetry)
@@ -493,48 +451,12 @@ Test your system's resilience with built-in chaos tools:
 
 ---
 
-## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **GeeksforGeeks** - Resilience patterns reference
 - **Refactoring Guru** - Design patterns catalog
 - **ReactBits.dev** - Component inspiration
-- **Unsplash** - Beautiful imagery
 
 ---
-
-## 📞 Support
-
-- 📧 Email: support@obsidian-mrop.dev
-- 💬 Discord: [Join our community](https://discord.gg/obsidian)
-- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/Obsidian/issues)
-- 📖 Docs: [Full Documentation](https://docs.obsidian-mrop.dev)
-
----
-
-<div align="center">
-
-### ⭐ Star us on GitHub if you find this useful!
-
-**Built with ❤️ for the microservice community**
-
-[Get Started](#-quick-start) • [View Demo](#) • [Read Docs](#-documentation)
-
 </div>
