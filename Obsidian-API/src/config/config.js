@@ -43,6 +43,23 @@ class Configuration {
       rateLimit: {
         windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 60000,
         maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+        service: {
+          defaultRequestsPerMinute: parseInt(process.env.SERVICE_RATE_LIMIT_RPM) || 1000,
+          endpointRequestsPerMinute: parseInt(process.env.ENDPOINT_RATE_LIMIT_RPM) || 10,
+        },
+      },
+      gateway: {
+        timeout: parseInt(process.env.GATEWAY_TIMEOUT) || 30000,
+        retries: parseInt(process.env.GATEWAY_RETRIES) || 3,
+        retryDelay: parseInt(process.env.GATEWAY_RETRY_DELAY) || 1000,
+        cache: {
+          defaultTtl: parseInt(process.env.CACHE_DEFAULT_TTL) || 300,
+          maxSize: parseInt(process.env.CACHE_MAX_SIZE) || 1000,
+        },
+        loadBalancer: {
+          defaultStrategy: process.env.LOAD_BALANCER_STRATEGY || 'round-robin',
+          healthCheckInterval: parseInt(process.env.HEALTH_CHECK_INTERVAL) || 30000,
+        },
       },
       cors: {
         origin: process.env.FRONTEND_URL || 'http://localhost:8080',

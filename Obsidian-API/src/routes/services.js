@@ -297,4 +297,98 @@ router.post(
     });
   })
 );
+
+/**
+ * @route   POST /api/services/:name/heartbeat
+ * @desc    Receive heartbeat from service instance
+ * @access  Public
+ */
+router.post(
+  '/:name/heartbeat',
+  asyncHandler(async (req, res) => {
+    const { name } = req.params;
+    const { instanceId, metrics, timestamp } = req.body;
+    
+    // Update service status and last seen time
+    await Service.findOneAndUpdate(
+      { name },
+      {
+        $set: {
+          status: 'healthy',
+          'healthCheck.lastCheck': new Date(),
+        },
+      }
+    );
+    
+    // Update metrics if provided
+    if (metrics) {
+      await Service.findOneAndUpdate(
+        { name },
+        {
+          $set: {
+            'metrics.totalRequests': metrics.requestCount || 0,
+            'metrics.failedRequests': metrics.errorCount || 0,
+            'metrics.averageResponseTime': metrics.averageResponseTime || 0,
+            'metrics.lastRequestTime': new Date(),
+          },
+        }
+      );
+    }
+    
+    res.json({
+      success: true,
+      message: 'Heartbeat received',
+    });
+  })
+);
+
+/**
+ * @route   POST /api/services/:name/metrics
+ * @desc    Receive metrics from service instance
+ * @access  Public
+ */
+router.post(
+  '/:name/metrics',
+  asyncHandler(async (req, res) => {
+    const { name } = req.params;
+    const { instanceId, endpoint, method, statusCode, responseTime, success, timestamp } = req.body;
+    
+    // Update service metrics
+    await Service.findOneAndUpdate(
+      { name },
+      {
+        $inc: {
+          'metrics.totalRequests': 1,
+          ...(success ? { 'metrics.successfulRequests': 1 } : { 'metrics.failedRequests': 1 }),
+        },
+        $set: {
+          'metrics.lastRequestTime': new Date(),
+        },
+      }
+    );
+    
+    // Update rolling average response time
+    const service = await Service.findOne({ name });
+    if (service?.metrics) {
+      const currentAvg = service.metrics.averageResponseTime || 0;
+      const totalRequests = Math.max(service.metrics.totalRequests, 1);
+      const previousRequests = Math.max(totalRequests - 1, 0);
+      const newAvg =
+        previousRequests > 0
+          ? ((currentAvg * previousRequests) + responseTime) / totalRequests
+          : responseTime;
+
+      await Service.updateOne(
+        { name },
+        { $set: { 'metrics.averageResponseTime': Math.round(newAvg) } }
+      );
+    }
+    
+    res.json({
+      success: true,
+      message: 'Metrics received',
+    });
+  })
+);
+
 export default router;

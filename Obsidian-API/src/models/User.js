@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 /**
  * User Model
@@ -103,7 +104,6 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 
 // Method to generate API key
 userSchema.methods.generateApiKey = function () {
-  const crypto = require('crypto');
   this.apiKey = `obsidian_${crypto.randomBytes(32).toString('hex')}`;
   return this.apiKey;
 };

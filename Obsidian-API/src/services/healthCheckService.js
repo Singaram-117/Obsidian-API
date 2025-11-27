@@ -1,3 +1,4 @@
+import axios from 'axios';
 import Service from '../models/Service.js';
 import circuitBreakerService from './circuitBreakerService.js';
 import { eventEmitter } from './eventService.js';
@@ -70,18 +71,17 @@ class HealthCheckService {
     try {
       const startTime = Date.now();
       
-      // Use circuit breaker to call health endpoint
-      const result = await circuitBreakerService.execute(
-        service.name,
-        service.url,
-        service.healthCheck.endpoint,
-        { timeout: service.healthCheck.timeout }
-      );
-
-      console.log(result)
+      const response = await axios({
+        method: 'get',
+        url: `${service.url}${service.healthCheck.endpoint}`,
+        timeout: service.healthCheck.timeout,
+        headers: {
+          'User-Agent': 'Obsidian-Health-Check',
+        },
+      });
       
       const responseTime = Date.now() - startTime;
-      const isHealthy = result.success && result.status >= 200 && result.status < 300;
+      const isHealthy = response.status >= 200 && response.status < 300;
       
       // Update service status
       const previousStatus = service.status;

@@ -106,29 +106,34 @@ const serviceSchema = new mongoose.Schema(
       },
     ],
     endpointsDiscoveredAt: Date,
-    // Rate limiting configuration
+    // Rate limiting configuration - Strategy Pattern Support
     rateLimit: {
       enabled: {
         type: Boolean,
         default: false,
       },
-      requestsPerMinute: {
-        type: Number,
-        default: 100,
-      },
-    },
-    endpointRateLimits: {
-      type: Map,
-      of: mongoose.Schema.Types.Mixed,
-    },
-    clientRateLimit: {
-      enabled: {
-        type: Boolean,
-        default: false,
+      strategy: {
+        type: String,
+        enum: ['fixed-window', 'sliding-window', 'token-bucket'],
+        default: 'fixed-window',
       },
       requestsPerMinute: {
         type: Number,
-        default: 60,
+        default: 1000,
+      },
+      // Per-endpoint rate limits
+      endpointLimits: {
+        type: Map,
+        of: {
+          enabled: Boolean,
+          requestsPerMinute: Number,
+        },
+        default: {},
+      },
+      // Per-client rate limits
+      clientRateLimit: {
+        enabled: Boolean,
+        requestsPerMinute: Number,
       },
     },
     // Caching configuration
@@ -150,7 +155,7 @@ const serviceSchema = new mongoose.Schema(
     loadBalancing: {
       enabled: {
         type: Boolean,
-        default: false,
+        default: true,
       },
       strategy: {
         type: String,

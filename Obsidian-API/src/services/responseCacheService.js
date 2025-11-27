@@ -1,8 +1,9 @@
 import logger from '../utils/logger.js';
 import crypto from 'crypto';
+import config from '../config/config.js';
 
 /**
- * Response Cache Service
+ * Response Cache Service - Cache-Aside Pattern Implementation
  * Caches microservice responses to reduce load and improve performance
  */
 class ResponseCacheService {
@@ -10,6 +11,7 @@ class ResponseCacheService {
     // In-memory cache
     // Format: Map<cacheKey, { data, expiresAt, hits, createdAt }>
     this.cache = new Map();
+    this.maxSize = config.get('gateway.cache.maxSize');
     this.stats = {
       hits: 0,
       misses: 0,
@@ -233,6 +235,124 @@ class ResponseCacheService {
       clearInterval(this.cleanupInterval);
       this.cleanupInterval = null;
     }
+  }
+
+  /**
+   * Get cache statistics for a service
+   */
+  getServiceStats(serviceName) {
+    let hits = 0;
+    let misses = 0;
+    let entries = 0;
+
+    for (const [key, entry] of this.cache.entries()) {
+      if (key.startsWith(serviceName + ':')) {
+        entries++;
+        hits += entry.hits || 0;
+      }
+    }
+
+    misses = this.stats.misses - hits;
+
+    return {
+      totalEntries: entries,
+      totalHits: hits,
+      totalMisses: misses,
+      hitRate: entries > 0 ? (hits / (hits + misses)) * 100 : 0,
+      memoryUsage: this.estimateMemoryUsage(),
+    };
+  }
+
+  /**
+   * Record a cache hit
+   */
+  recordHit(cacheKey) {
+    const entry = this.cache.get(cacheKey);
+    if (entry) {
+      entry.hits = (entry.hits || 0) + 1;
+      this.stats.hits++;
+    }
+  }
+
+  /**
+   * Set cache entry with TTL
+   */
+  set(cacheKey, data, ttl = 300) {
+    if (this.cache.size >= this.maxSize) {
+      this.evictLRU();
+    }
+
+    const entry = {
+      data,
+      expiresAt: Date.now() + (ttl * 1000),
+      hits: 0,
+      createdAt: Date.now(),
+      size: this.estimateSize(data),
+    };
+
+    this.cache.set(cacheKey, entry);
+    this.stats.sets++;
+
+    return entry;
+  }
+
+  /**
+   * Get cache entry
+   */
+  get(cacheKey) {
+    const entry = this.cache.get(cacheKey);
+
+    if (!entry) {
+      this.stats.misses++;
+      return null;
+    }
+
+    if (Date.now() > entry.expiresAt) {
+      this.cache.delete(cacheKey);
+      this.stats.evictions++;
+      this.stats.misses++;
+      return null;
+    }
+
+    return entry;
+  }
+
+  /**
+   * Evict least recently used entry
+   */
+  evictLRU() {
+    let oldestKey = null;
+    let oldestTime = Date.now();
+
+    for (const [key, entry] of this.cache.entries()) {
+      if (entry.createdAt < oldestTime) {
+        oldestTime = entry.createdAt;
+        oldestKey = key;
+      }
+    }
+
+    if (oldestKey) {
+      this.cache.delete(oldestKey);
+      this.stats.evictions++;
+    }
+  }
+
+  /**
+   * Estimate memory usage
+   */
+  estimateMemoryUsage() {
+    let totalSize = 0;
+    for (const entry of this.cache.values()) {
+      totalSize += entry.size || 0;
+    }
+    return totalSize;
+  }
+
+  /**
+   * Estimate data size
+   */
+  estimateSize(data) {
+    return JSON.stringify(data).length * 2; // Rough estimate in bytes
   }
 
   /**

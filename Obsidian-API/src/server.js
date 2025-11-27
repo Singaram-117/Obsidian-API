@@ -26,6 +26,7 @@ import adminRoutes from './routes/admin.js';
 import githubRoutes from './routes/github.js';
 import codeAnalyzerRoutes from './routes/codeAnalyzer.js';
 import microserviceManagementRoutes from './routes/microserviceManagement.js';
+import gatewayRoutes from './routes/gateway.js';
 
 /**
  * Initialize Express App
@@ -73,6 +74,10 @@ app.get('/', (req, res) => {
 // Health check routes (no rate limiting)
 app.use('/health', healthRoutes);
 app.use('/api', apiLimiter);
+
+// Gateway routes (gateway handles its own rate limiting)
+app.use('/api/gateway', gatewayRoutes);
+
 app.use('/api/health', healthRoutes);
 
 // Apply rate limiting to API routes
@@ -165,6 +170,16 @@ const startServer = async () => {
   try {
     // Connect to MongoDB
     await connectDB();
+    
+    // Initialize database with default data
+    try {
+      const { initDatabase } = await import('./scripts/initDatabase.js');
+      await initDatabase();
+    } catch (error) {
+      logger.warn('Database initialization failed, continuing', {
+        error: error.message,
+      });
+    }
     
     // Initialize Kafka (don't throw if it fails)
     try {

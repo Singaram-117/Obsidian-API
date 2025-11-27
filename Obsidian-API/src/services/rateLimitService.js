@@ -1,23 +1,144 @@
 import Service from '../models/Service.js';
 import logger from '../utils/logger.js';
+import config from '../config/config.js';
+import { eventEmitter } from './eventService.js';
 
 /**
- * Advanced Rate Limiting Service
+ * Advanced Rate Limiting Service - Strategy Pattern Implementation
  * Implements per-service, per-endpoint, and per-client rate limiting
+ * Uses different strategies for different types of rate limiting
  */
 class RateLimitService {
   constructor() {
     // In-memory store for rate limit buckets
-    // Format: Map<key, { count, resetAt }>
+    // Format: Map<key, { count, resetAt, windowStart }>
     this.buckets = new Map();
     this.cleanupInterval = null;
+
+    // Rate limiting strategies - Strategy Pattern
+    this.strategies = {
+      'fixed-window': this.fixedWindowStrategy.bind(this),
+      'sliding-window': this.slidingWindowStrategy.bind(this),
+      'token-bucket': this.tokenBucketStrategy.bind(this),
+    };
 
     // Start cleanup task
     this.startCleanup();
   }
 
   /**
-   * Check if a request should be rate limited
+   * Fixed Window Strategy - Simple time window based rate limiting
+   */
+  async fixedWindowStrategy(key, limit, windowMs) {
+    const now = Date.now();
+    const bucket = this.buckets.get(key);
+
+    if (!bucket || now >= bucket.resetAt) {
+      // New window or first request
+      this.buckets.set(key, {
+        count: 1,
+        resetAt: now + windowMs,
+        windowStart: now,
+      });
+
+      return { allowed: true };
+    }
+
+    if (bucket.count >= limit) {
+      return {
+        allowed: false,
+        resetAt: bucket.resetAt,
+        remaining: 0,
+      };
+    }
+
+    bucket.count++;
+    return {
+      allowed: true,
+      remaining: limit - bucket.count,
+      resetAt: bucket.resetAt,
+    };
+  }
+
+  /**
+   * Sliding Window Strategy - More accurate rate limiting
+   */
+  async slidingWindowStrategy(key, limit, windowMs) {
+    const now = Date.now();
+    const windowStart = now - windowMs;
+    const bucket = this.buckets.get(key);
+
+    if (!bucket) {
+      this.buckets.set(key, {
+        requests: [{ timestamp: now }],
+        resetAt: now + windowMs,
+      });
+      return { allowed: true };
+    }
+
+    // Remove old requests outside the window
+    bucket.requests = bucket.requests.filter(req => req.timestamp > windowStart);
+
+    if (bucket.requests.length >= limit) {
+      const oldestRequest = bucket.requests[0];
+      return {
+        allowed: false,
+        resetAt: oldestRequest.timestamp + windowMs,
+        remaining: 0,
+      };
+    }
+
+    bucket.requests.push({ timestamp: now });
+    return {
+      allowed: true,
+      remaining: limit - bucket.requests.length,
+      resetAt: bucket.requests[0].timestamp + windowMs,
+    };
+  }
+
+  /**
+   * Token Bucket Strategy - Allows bursts but maintains average rate
+   */
+  async tokenBucketStrategy(key, limit, windowMs) {
+    const now = Date.now();
+    const bucket = this.buckets.get(key);
+
+    if (!bucket) {
+      this.buckets.set(key, {
+        tokens: limit,
+        lastRefill: now,
+        resetAt: now + windowMs,
+      });
+      return { allowed: true };
+    }
+
+    // Refill tokens based on time passed
+    const timePassed = now - bucket.lastRefill;
+    const tokensToAdd = Math.floor(timePassed / (windowMs / limit));
+
+    if (tokensToAdd > 0) {
+      bucket.tokens = Math.min(limit, bucket.tokens + tokensToAdd);
+      bucket.lastRefill = now;
+    }
+
+    if (bucket.tokens <= 0) {
+      return {
+        allowed: false,
+        resetAt: bucket.lastRefill + (windowMs / limit),
+        remaining: 0,
+      };
+    }
+
+    bucket.tokens--;
+    return {
+      allowed: true,
+      remaining: bucket.tokens,
+      resetAt: bucket.lastRefill + (windowMs / limit),
+    };
+  }
+
+  /**
+   * Check if a request should be rate limited - Strategy Pattern Facade
    */
   async checkLimit(serviceName, endpoint = '*', clientId = 'default') {
     const service = await Service.findOne({ name: serviceName });
@@ -26,28 +147,74 @@ class RateLimitService {
       return { allowed: true, reason: 'service_not_found' };
     }
 
+    // Get rate limit configuration
+    const rateLimitConfig = service.rateLimit || {};
+    const strategy = rateLimitConfig.strategy || 'fixed-window';
+    const strategyFn = this.strategies[strategy] || this.strategies['fixed-window'];
+
     // Check service-level rate limit
-    const serviceLimit = service.rateLimit;
-    if (serviceLimit && serviceLimit.enabled) {
-      const serviceKey = `service:${serviceName}`;
-      const serviceCheck = this.checkBucket(
-        serviceKey,
-        serviceLimit.requestsPerMinute,
-        60000
-      );
+    if (rateLimitConfig.enabled) {
+      const limit = rateLimitConfig.requestsPerMinute || config.get('rateLimit.service.defaultRequestsPerMinute');
+      const serviceKey = `service:${serviceName}:${clientId}`;
+      const serviceCheck = await strategyFn(serviceKey, limit, 60000);
 
       if (!serviceCheck.allowed) {
         logger.warn('Service rate limit exceeded', {
           serviceName,
-          limit: serviceLimit.requestsPerMinute,
+          clientId,
+          limit,
+          strategy,
+          resetAt: serviceCheck.resetAt,
+        });
+        this.emitRateLimitEvent({
+          serviceName,
+          endpoint: '*',
+          clientId,
+          limit,
+          strategy,
+          reason: 'service_limit_exceeded',
           resetAt: serviceCheck.resetAt,
         });
         return {
           allowed: false,
           reason: 'service_limit_exceeded',
-          limit: serviceLimit.requestsPerMinute,
+          limit,
           resetAt: serviceCheck.resetAt,
           retryAfter: Math.ceil((serviceCheck.resetAt - Date.now()) / 1000),
+        };
+      }
+    }
+
+    // Check endpoint-level rate limit
+    const endpointLimit = rateLimitConfig.endpointLimits?.[endpoint] || rateLimitConfig.endpointLimits?.['*'];
+    if (endpointLimit && endpointLimit.enabled) {
+      const limit = endpointLimit.requestsPerMinute || config.get('rateLimit.service.endpointRequestsPerMinute');
+      const endpointKey = `endpoint:${serviceName}:${endpoint}:${clientId}`;
+      const endpointCheck = await strategyFn(endpointKey, limit, 60000);
+
+      if (!endpointCheck.allowed) {
+        logger.warn('Endpoint rate limit exceeded', {
+          serviceName,
+          endpoint,
+          clientId,
+          limit,
+          resetAt: endpointCheck.resetAt,
+        });
+        this.emitRateLimitEvent({
+          serviceName,
+          endpoint,
+          clientId,
+          limit,
+          strategy,
+          reason: 'endpoint_limit_exceeded',
+          resetAt: endpointCheck.resetAt,
+        });
+        return {
+          allowed: false,
+          reason: 'endpoint_limit_exceeded',
+          limit,
+          resetAt: endpointCheck.resetAt,
+          retryAfter: Math.ceil((endpointCheck.resetAt - Date.now()) / 1000),
         };
       }
     }
@@ -67,6 +234,13 @@ class RateLimitService {
           serviceName,
           endpoint,
           limit: endpointLimits[endpoint].requestsPerMinute,
+        });
+        this.emitRateLimitEvent({
+          serviceName,
+          endpoint,
+          limit: endpointLimits[endpoint].requestsPerMinute,
+          reason: 'endpoint_limit_exceeded',
+          resetAt: endpointCheck.resetAt,
         });
         return {
           allowed: false,
@@ -94,6 +268,13 @@ class RateLimitService {
           serviceName,
           clientId,
           limit: clientLimit.requestsPerMinute,
+        });
+        this.emitRateLimitEvent({
+          serviceName,
+          clientId,
+          limit: clientLimit.requestsPerMinute,
+          reason: 'client_limit_exceeded',
+          resetAt: clientCheck.resetAt,
         });
         return {
           allowed: false,
@@ -134,6 +315,20 @@ class RateLimitService {
 
     bucket.count++;
     return { allowed: true, count: bucket.count, resetAt: bucket.resetAt };
+  }
+
+  emitRateLimitEvent(payload) {
+    try {
+      eventEmitter.emit('rateLimit:exceeded', {
+        timestamp: new Date(),
+        ...payload,
+      });
+    } catch (error) {
+      logger.warn('Failed to emit rate limit event', {
+        error: error.message,
+        payload,
+      });
+    }
   }
 
   /**
@@ -220,31 +415,48 @@ class RateLimitService {
   }
 
   /**
-   * Get rate limit status for a service
+   * Get rate limit status for a service - Observer Pattern Integration
    */
   async getRateLimitStatus(serviceName) {
     const service = await Service.findOne({ name: serviceName });
 
     if (!service) {
-      throw new Error('Service not found');
+      return {
+        enabled: false,
+        reason: 'service_not_found',
+        strategy: 'fixed-window',
+        requestsPerMinute: 0,
+        currentUsage: { totalRequests: 0, activeBuckets: 0 },
+      };
     }
+
+    const rateLimitConfig = service.rateLimit || {};
 
     // Get current bucket stats
     const serviceKey = `service:${serviceName}`;
     const serviceBucket = this.buckets.get(serviceKey);
 
+    // Get current bucket stats for all clients
+    let totalRequests = 0;
+    let activeBuckets = 0;
+
+    for (const [key, bucket] of this.buckets.entries()) {
+      if (key.startsWith(`service:${serviceName}:`)) {
+        activeBuckets++;
+        totalRequests += bucket.count || bucket.requests?.length || bucket.tokens || 0;
+      }
+    }
+
     const status = {
-      service: {
-        enabled: service.rateLimit?.enabled || false,
-        limit: service.rateLimit?.requestsPerMinute || 0,
-        current: serviceBucket?.count || 0,
-        resetAt: serviceBucket?.resetAt || null,
+      enabled: rateLimitConfig.enabled || false,
+      strategy: rateLimitConfig.strategy || 'fixed-window',
+      requestsPerMinute: rateLimitConfig.requestsPerMinute || config.get('rateLimit.service.defaultRequestsPerMinute'),
+      currentUsage: {
+        totalRequests,
+        activeBuckets,
       },
-      endpoints: {},
-      client: {
-        enabled: service.clientRateLimit?.enabled || false,
-        limit: service.clientRateLimit?.requestsPerMinute || 0,
-      },
+      endpoints: rateLimitConfig.endpointLimits || {},
+      clientLimits: rateLimitConfig.clientRateLimit || {},
     };
 
     // Get endpoint bucket stats
@@ -320,4 +532,3 @@ class RateLimitService {
 }
 
 export default new RateLimitService();
-
