@@ -5,6 +5,7 @@ import StatCard from '../components/StatCard';
 import EventFeed from '../components/EventFeed';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function Dashboard() {
   const [realtimeStats, setRealtimeStats] = useState({
@@ -14,54 +15,58 @@ export default function Dashboard() {
     totalEvents: 0,
   });
 
-  const { data: servicesData, isLoading: servicesLoading } = useQuery({
+  const { data: servicesData, isLoading: servicesLoading, error: servicesError } = useQuery({
     queryKey: ['services'],
     queryFn: async () => {
       try {
-        const data = await servicesApi.getAll();
-        return Array.isArray(data) ? data : [];
+        const response = await servicesApi.getAll();
+        console.log('Services API response:', response);
+        // Handle different response formats
+        if (response && response.data) {
+          return Array.isArray(response.data) ? response.data : [];
+        }
+        return Array.isArray(response) ? response : [];
       } catch (error) {
         console.error('Failed to fetch services:', error);
-        return [];
+        throw error; // Let React Query handle the error
       }
     },
     refetchInterval: 5000,
+    retry: 3,
+    retryDelay: 1000,
   });
 
-  const { data: eventsData, isLoading: eventsLoading } = useQuery({
+  const { data: eventsData, isLoading: eventsLoading, error: eventsError } = useQuery({
     queryKey: ['recent-events'],
     queryFn: async () => {
       try {
-        const data = await eventsApi.getAll({ limit: 10 });
-        return Array.isArray(data) ? data : [];
+        const response = await eventsApi.getAll({ limit: 10 });
+        console.log('Events API response:', response);
+        // Handle different response formats
+        if (response && response.data) {
+          return Array.isArray(response.data) ? response.data : [];
+        }
+        return Array.isArray(response) ? response : [];
       } catch (error) {
         console.error('Failed to fetch events:', error);
-        return [];
+        throw error; // Let React Query handle the error
       }
     },
     refetchInterval: 3000,
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const recentEvents = Array.isArray(eventsData) ? eventsData : [];
-
   const services = Array.isArray(servicesData) ? servicesData : [];
 
   // Debug logging
   console.log('Dashboard - servicesData:', servicesData);
   console.log('Dashboard - services:', services);
+  console.log('Dashboard - servicesError:', servicesError);
+  console.log('Dashboard - eventsError:', eventsError);
 
-  // Show loading state if data is still loading
-  if (servicesLoading) {
-    return (
-      <div className="space-y-8 p-6">
-        <div className="text-center py-12">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-400 font-inter">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // Update stats when data changes
   useEffect(() => {
     const healthyCount = services.filter(s => s.status === 'healthy').length;
     const openCircuits = services.filter(s => s.circuitStatus === 'open').length;
@@ -73,6 +78,28 @@ export default function Dashboard() {
       totalEvents: recentEvents.length,
     });
   }, [services, recentEvents]);
+
+  // Show loading state if data is still loading
+  if (servicesLoading || eventsLoading) {
+    return (
+      <div className="space-y-8 p-6">
+        <LoadingSpinner 
+          message="Loading dashboard..." 
+          size="large"
+        />
+        {servicesError && (
+          <div className="text-center">
+            <p className="text-red-400 text-sm">Failed to load services: {servicesError.message}</p>
+          </div>
+        )}
+        {eventsError && (
+          <div className="text-center">
+            <p className="text-red-400 text-sm">Failed to load events: {eventsError.message}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -117,7 +144,6 @@ export default function Dashboard() {
         <StatCard
           title="Total Services"
           value={realtimeStats.totalServices}
-          icon="🎯"
           trend="+12%"
           loading={servicesLoading}
           className="glass-dark border-blue-500/20 card-hover"
@@ -125,7 +151,6 @@ export default function Dashboard() {
         <StatCard
           title="Healthy Services"
           value={realtimeStats.healthyServices}
-          icon="✅"
           trend="+5%"
           loading={servicesLoading}
           className="glass-dark border-green-500/20 card-hover neon-border-green"
@@ -133,7 +158,6 @@ export default function Dashboard() {
         <StatCard
           title="Circuit Breakers"
           value={realtimeStats.activeCircuits}
-          icon="⚡"
           subtitle="Open Circuits"
           loading={servicesLoading}
           className={`glass-dark card-hover ${
@@ -143,7 +167,6 @@ export default function Dashboard() {
         <StatCard
           title="Recent Events"
           value={realtimeStats.totalEvents}
-          icon="📊"
           subtitle="Last 10 events"
           loading={eventsLoading}
           className="glass-dark border-purple-500/20 card-hover"

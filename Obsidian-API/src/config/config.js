@@ -102,4 +102,3 @@ class Configuration {
 // Export singleton instance
 const config = new Configuration();
 export default config;
-

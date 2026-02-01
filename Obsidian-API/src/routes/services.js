@@ -371,12 +371,8 @@ router.post(
     const service = await Service.findOne({ name });
     if (service?.metrics) {
       const currentAvg = service.metrics.averageResponseTime || 0;
-      const totalRequests = Math.max(service.metrics.totalRequests, 1);
-      const previousRequests = Math.max(totalRequests - 1, 0);
-      const newAvg =
-        previousRequests > 0
-          ? ((currentAvg * previousRequests) + responseTime) / totalRequests
-          : responseTime;
+      const totalRequests = service.metrics.totalRequests + 1;
+      const newAvg = ((currentAvg * (totalRequests - 1)) + responseTime) / totalRequests;
 
       await Service.updateOne(
         { name },

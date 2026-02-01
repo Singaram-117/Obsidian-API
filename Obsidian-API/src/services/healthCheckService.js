@@ -1,8 +1,29 @@
-import axios from 'axios';
 import Service from '../models/Service.js';
 import circuitBreakerService from './circuitBreakerService.js';
 import { eventEmitter } from './eventService.js';
 import logger from '../utils/logger.js';
+
+export const normalizeHealthEndpoint = (endpoint = '/health') => {
+  const defaultEndpoint = '/health';
+
+  if (!endpoint) {
+    return defaultEndpoint;
+  }
+
+  const trimmed = String(endpoint).trim();
+
+  if (!trimmed) {
+    return defaultEndpoint;
+  }
+
+  try {
+    const parsedUrl = new URL(trimmed);
+    const normalizedPath = `${parsedUrl.pathname}${parsedUrl.search || ''}${parsedUrl.hash || ''}`;
+    return normalizedPath || defaultEndpoint;
+  } catch {
+    return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  }
+};
 
 /**
  * Health Check Service
@@ -71,17 +92,18 @@ class HealthCheckService {
     try {
       const startTime = Date.now();
       
-      const response = await axios({
-        method: 'get',
-        url: `${service.url}${service.healthCheck.endpoint}`,
-        timeout: service.healthCheck.timeout,
-        headers: {
-          'User-Agent': 'Obsidian-Health-Check',
-        },
-      });
+      // Use circuit breaker to call health endpoint
+      const result = await circuitBreakerService.execute(
+        service.name,
+        service.url,
+        service.healthCheck.endpoint,
+        { timeout: service.healthCheck.timeout }
+      );
+
+      console.log(result)
       
       const responseTime = Date.now() - startTime;
-      const isHealthy = response.status >= 200 && response.status < 300;
+      const isHealthy = result.success && result.status >= 200 && result.status < 300;
       
       // Update service status
       const previousStatus = service.status;

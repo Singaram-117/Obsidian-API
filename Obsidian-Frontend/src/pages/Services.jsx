@@ -5,19 +5,51 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import Badge from '../components/Badge';
 
+const normalizeHealthEndpoint = (value = '') => {
+  const defaultEndpoint = '/health';
+  const trimmed = String(value || '').trim();
+
+  if (!trimmed) {
+    return defaultEndpoint;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const normalizedPath = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    return normalizedPath || defaultEndpoint;
+  } catch {
+    return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  }
+};
+
 export default function Services() {
   const queryClient = useQueryClient();
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [selectedService, setSelectedService] = useState(null);
   const [showGithubInfo, setShowGithubInfo] = useState(false);
 
-  const { data: services = [], isLoading } = useQuery({
+  const { data: services = [], isLoading, error } = useQuery({
     queryKey: ['services'],
     queryFn: async () => {
-      const response = await servicesApi.getAll();
-      return response.data || [];
+      try {
+        const response = await servicesApi.getAll();
+        console.log('Services page - API response:', response);
+        // Handle different response formats
+        if (Array.isArray(response)) {
+          return response;
+        }
+        if (response && response.data && Array.isArray(response.data)) {
+          return response.data;
+        }
+        return [];
+      } catch (error) {
+        console.error('Failed to fetch services:', error);
+        throw error;
+      }
     },
     refetchInterval: 5000,
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const registerMutation = useMutation({
@@ -38,13 +70,14 @@ export default function Services() {
   const handleRegister = (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
+    const healthEndpointInput = formData.get('healthEndpoint');
     const data = {
       name: formData.get('name'),
       url: formData.get('url'),
       description: formData.get('description'),
       githubUrl: formData.get('githubUrl') || undefined,
       healthCheck: {
-        endpoint: formData.get('healthEndpoint') || `${formData.get('url')}/health`,
+        endpoint: normalizeHealthEndpoint(healthEndpointInput),
         interval: parseInt(formData.get('interval')) || 30000,
       },
     };
@@ -85,6 +118,20 @@ export default function Services() {
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin-slow text-6xl">⚙️</div>
         </div>
+      ) : error ? (
+        <Card className="glass-dark text-center py-16">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h3 className="text-2xl font-bold mb-2 text-red-400">Failed to Load Services</h3>
+          <p className="text-gray-400 mb-6">
+            {error.message || 'Unable to fetch services. Please try again.'}
+          </p>
+          <Button
+            onClick={() => window.location.reload()}
+            className="bg-gradient-to-r from-red-500 to-red-600"
+          >
+            🔄 Retry
+          </Button>
+        </Card>
       ) : services.length === 0 ? (
         <Card className="glass-dark text-center py-16">
           <div className="text-6xl mb-4 animate-float">🌐</div>
@@ -203,9 +250,20 @@ export default function Services() {
                   <div>
                     <p className="text-xs text-gray-500">Success</p>
                     <p className="text-lg font-bold text-green-400">
-                      {service.metrics?.totalRequests > 0
-                        ? Math.round((service.metrics.successfulRequests / service.metrics.totalRequests) * 100)
-                        : 0}%
+                      {(() => {
+                        const total = service.metrics?.totalRequests || 0;
+                        const successful = service.metrics?.successfulRequests || 0;
+                        const failed = service.metrics?.failedRequests || 0;
+                        
+                        // If we have total requests, calculate success rate
+                        if (total > 0) {
+                          // Use successful requests if available, otherwise calculate from total - failed
+                          const successCount = successful > 0 ? successful : Math.max(0, total - failed);
+                          const rate = (successCount / total) * 100;
+                          return Math.round(Math.min(100, Math.max(0, rate))); // Cap at 100%
+                        }
+                        return 0;
+                      })()}%
                     </p>
                   </div>
                   <div>

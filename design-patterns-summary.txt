@@ -1,0 +1,46 @@
+Design Patterns Summary
+=======================
+
+Backend
+-------
+Proxy/Facade (`Obsidian-API/src/services/apiGatewayService.js`)
+- Gateway routes all service calls through a single interface that orchestrates rate limiting, load balancing, caching, and circuit breaking.
+- `makeRequest()`, `selectInstance()`, and `routeRequest()` encapsulate the pipeline.
+
+Strategy (`Obsidian-API/src/services/rateLimitService.js` and `.../loadBalancerService.js`)
+- Rate limiting exposes fixed-window, sliding-window, and token-bucket strategies.
+- Load balancing exposes round-robin, least-connections, weighted-round-robin/response-time, random, and IP-hash strategies.
+- `checkLimit()` and `getInstance()` select the correct strategy per service.
+
+Circuit Breaker (`Obsidian-API/src/services/circuitBreakerService.js`)
+- Uses the Opossum library to protect downstream calls.
+- Tracks open/half-open/closed states and emits events/logs for each transition.
+
+Cache-Aside (`Obsidian-API/src/services/responseCacheService.js`)
+- Caches gateway responses with TTL cleanup, hit/miss stats, and cache invalidation helpers for services/endpoints.
+
+Singleton (`Obsidian-API/src/config/config.js`)
+- Ensures configuration values (Mongo, Redis, Kafka, JWT, circuit breaker thresholds) reuse a single instance across the backend.
+
+Observer (`Obsidian-API/src/services/eventService.js`)
+- Extends `EventEmitter` to publish circuit, health, rate limit, chaos, and alert events to Socket.IO and the dashboard.
+
+Factory (`Obsidian-API/src/services/healthCheckService.js`)
+- Dynamically registers health check intervals per service configuration and controls the creation/execution lifecycle.
+
+Frontend
+--------
+Context/Provider (`Obsidian-Frontend/src/contexts/AuthContext.jsx`, `SocketContext.jsx`)
+- Auth context holds JWT/API key state, while Socket context manages the Socket.IO client connection for real-time updates.
+
+Higher-Order Component (`Obsidian-Frontend/src/components/ProtectedRoute.jsx`)
+- Wraps routes to enforce authentication and role-based access before rendering child components.
+
+Error Boundary (`Obsidian-Frontend/src/components/ErrorBoundary.jsx`)
+- Catches rendering errors and displays fallback UI without crashing the entire app.
+
+Custom Hooks (multiple files)
+- Hooks like `useAuth()`, `useSocket()`, `useQuery()` encapsulate reusable data fetching and state logic across pages and components.
+
+This file summarizes the design patterns active in Obsidian MROP with their primary files and purposes.
+

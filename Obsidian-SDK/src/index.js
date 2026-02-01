@@ -1,280 +1,230 @@
 import axios from 'axios';
-import os from 'os';
+import logger from './logger.js';
 
 /**
- * Obsidian Agent
- * Drop-in library for automatic service registration
+ * Obsidian SDK - Observer Pattern Integration
+ * Provides seamless integration with Obsidian MROP
  */
-class ObsidianAgent {
+class ObsidianSDK {
   constructor(config = {}) {
     this.config = {
-      obsidianUrl: config.obsidianUrl || process.env.OBSIDIAN_URL || 'http://localhost:5000',
-      serviceName: config.serviceName || process.env.SERVICE_NAME || this.detectServiceName(),
-      serviceUrl: config.serviceUrl || process.env.SERVICE_URL || this.detectServiceUrl(),
-      healthEndpoint: config.healthEndpoint || '/health',
-      healthInterval: config.healthInterval || 30000,
-      heartbeatInterval: config.heartbeatInterval || 60000,
-      autoRegister: config.autoRegister !== false,
-      metadata: config.metadata || {},
+      obsidianUrl: config.obsidianUrl || 'http://localhost:5000',
+      serviceName: config.serviceName || 'unknown-service',
+      instanceId: config.instanceId || this.generateInstanceId(),
+      heartbeatInterval: config.heartbeatInterval || 30000,
+      ...config,
     };
 
-    this.registered = false;
-    this.heartbeatTimer = null;
-  }
-
-  /**
-   * Detect service name from package.json or hostname
-   */
-  detectServiceName() {
-    try {
-      // Try to read package.json
-      const pkg = require(process.cwd() + '/package.json');
-      return pkg.name;
-    } catch {
-      // Fallback to hostname
-      return os.hostname();
-    }
-  }
-
-  /**
-   * Detect service URL from environment or default
-   */
-  detectServiceUrl() {
-    const host = process.env.HOST || 'localhost';
-    const port = process.env.PORT || 3000;
-    return `http://${host}:${port}`;
-  }
-
-  /**
-   * Initialize agent
-   */
-  async initialize() {
-    console.log('[Obsidian Agent] Initializing...', {
-      serviceName: this.config.serviceName,
-      serviceUrl: this.config.serviceUrl,
-      obsidianUrl: this.config.obsidianUrl,
+    this.client = axios.create({
+      baseURL: this.config.obsidianUrl,
+      timeout: 5000,
+      headers: {
+        'User-Agent': `Obsidian-SDK/${this.config.serviceName}/${this.config.instanceId}`,
+      },
     });
 
-    if (this.config.autoRegister) {
-      await this.register();
-      this.startHeartbeat();
-    }
+    this.heartbeatInterval = null;
+    this.isRegistered = false;
+    this.metrics = {
+      requestCount: 0,
+      errorCount: 0,
+      averageResponseTime: 0,
+    };
 
-    // Graceful shutdown
-    process.on('SIGTERM', () => this.shutdown());
-    process.on('SIGINT', () => this.shutdown());
+    // Start heartbeat
+    this.startHeartbeat();
   }
 
   /**
-   * Register service with Obsidian
+   * Generate unique instance ID
+   */
+  generateInstanceId() {
+    return `${this.config.serviceName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Register service with Obsidian - Observer Pattern
    */
   async register() {
     try {
       const registrationData = {
         name: this.config.serviceName,
-        url: this.config.serviceUrl,
-        healthCheck: {
-          endpoint: this.config.healthEndpoint,
-          interval: this.config.healthInterval,
-          timeout: 5000,
-        },
-        metadata: {
-          ...this.config.metadata,
-          hostname: os.hostname(),
-          platform: os.platform(),
-          nodeVersion: process.version,
-          pid: process.pid,
-          registeredAt: new Date().toISOString(),
-          agentVersion: '1.0.0',
-        },
+        url: this.config.serviceUrl || `http://localhost:${this.config.port || 3000}`,
+        description: this.config.description || 'Microservice registered via SDK',
+        instanceId: this.config.instanceId,
       };
 
-      const response = await axios.post(
-        `${this.config.obsidianUrl}/api/services`,
-        registrationData,
-        {
-          timeout: 10000,
-        }
-      );
+      const response = await this.client.post('/api/services', registrationData);
 
-      this.registered = true;
-      console.log('[Obsidian Agent] Service registered successfully', {
+      this.isRegistered = true;
+      logger.info('Service registered with Obsidian', {
         serviceName: this.config.serviceName,
+        instanceId: this.config.instanceId,
       });
 
       return response.data;
     } catch (error) {
-      console.error('[Obsidian Agent] Failed to register service', {
+      logger.error('Failed to register with Obsidian', {
         error: error.message,
+        serviceName: this.config.serviceName,
       });
-      
-      // Retry after delay
-      setTimeout(() => this.register(), 30000);
+      throw error;
     }
+  }
+
+  /**
+   * Start heartbeat to keep service alive - Observer Pattern
+   */
+  startHeartbeat() {
+    this.heartbeatInterval = setInterval(async () => {
+      try {
+        await this.sendHeartbeat();
+      } catch (error) {
+        logger.warn('Heartbeat failed', { error: error.message });
+      }
+    }, this.config.heartbeatInterval);
   }
 
   /**
    * Send heartbeat to Obsidian
    */
   async sendHeartbeat() {
-    if (!this.registered) return;
+    if (!this.isRegistered) {
+      return;
+    }
 
     try {
-      await axios.post(
-        `${this.config.obsidianUrl}/api/services/${this.config.serviceName}/heartbeat`,
-        {
-          timestamp: new Date().toISOString(),
-          metrics: {
-            memory: process.memoryUsage(),
-            uptime: process.uptime(),
-            cpu: process.cpuUsage(),
-          },
-        },
-        {
-          timeout: 5000,
-        }
-      );
-
-      console.log('[Obsidian Agent] Heartbeat sent');
-    } catch (error) {
-      console.error('[Obsidian Agent] Failed to send heartbeat', {
-        error: error.message,
+      await this.client.post(`/api/services/${this.config.serviceName}/heartbeat`, {
+        instanceId: this.config.instanceId,
+        metrics: this.metrics,
+        timestamp: new Date(),
       });
-    }
-  }
 
-  /**
-   * Start periodic heartbeat
-   */
-  startHeartbeat() {
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
-    }
-
-    this.heartbeatTimer = setInterval(
-      () => this.sendHeartbeat(),
-      this.config.heartbeatInterval
-    );
-  }
-
-  /**
-   * Unregister service (on shutdown)
-   */
-  async unregister() {
-    if (!this.registered) return;
-
-    try {
-      await axios.delete(
-        `${this.config.obsidianUrl}/api/services/${this.config.serviceName}`,
-        {
-          timeout: 5000,
-        }
-      );
-
-      console.log('[Obsidian Agent] Service unregistered');
-    } catch (error) {
-      console.error('[Obsidian Agent] Failed to unregister service', {
-        error: error.message,
+      logger.debug('Heartbeat sent', {
+        serviceName: this.config.serviceName,
+        instanceId: this.config.instanceId,
       });
+    } catch (error) {
+      logger.warn('Failed to send heartbeat', { error: error.message });
     }
   }
 
   /**
-   * Graceful shutdown
+   * Record metrics - Observer Pattern
    */
-  async shutdown() {
-    console.log('[Obsidian Agent] Shutting down...');
+  recordMetrics(responseTime, success = true) {
+    this.metrics.requestCount++;
 
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
+    if (!success) {
+      this.metrics.errorCount++;
     }
 
-    await this.unregister();
-
-    process.exit(0);
+    // Update rolling average response time
+    const currentAvg = this.metrics.averageResponseTime || 0;
+    const totalRequests = this.metrics.requestCount;
+    this.metrics.averageResponseTime = ((currentAvg * (totalRequests - 1)) + responseTime) / totalRequests;
   }
 
   /**
-   * Express middleware for automatic endpoint tracking
+   * Create middleware for automatic request tracking
    */
-  expressMiddleware() {
-    return (req, res, next) => {
+  createTrackingMiddleware() {
+    return async (req, res, next) => {
       const startTime = Date.now();
 
-      // Track response
-      res.on('finish', () => {
-        const duration = Date.now() - startTime;
-        
-        // Send metric to Obsidian
-        this.sendMetric({
-          type: 'request',
-          endpoint: req.path,
-          method: req.method,
-          statusCode: res.statusCode,
-          duration,
-          timestamp: new Date().toISOString(),
-        }).catch(() => {
-          // Silently fail
-        });
-      });
+      // Override res.end to capture response
+      const originalEnd = res.end;
+      res.end = function(...args) {
+        const responseTime = Date.now() - startTime;
+        const success = res.statusCode >= 200 && res.statusCode < 400;
 
+        // Record metrics
+        this.recordMetrics(responseTime, success);
+
+        // Send metrics to Obsidian
+        this.sendMetrics(req, res, responseTime, success);
+
+        // Call original end
+        originalEnd.apply(res, args);
+      }.bind(this);
+
+      // Continue to next middleware/route handler
       next();
     };
   }
 
   /**
-   * Send custom metric
+   * Send metrics to Obsidian
    */
-  async sendMetric(metric) {
-    if (!this.registered) return;
+  async sendMetrics(req, res, responseTime, success) {
+    if (!this.isRegistered) {
+      return;
+    }
 
     try {
-      await axios.post(
-        `${this.config.obsidianUrl}/api/metrics`,
-        {
-          serviceName: this.config.serviceName,
-          ...metric,
-        },
-        {
-          timeout: 5000,
-        }
-      );
+      await this.client.post(`/api/services/${this.config.serviceName}/metrics`, {
+        instanceId: this.config.instanceId,
+        endpoint: req.path,
+        method: req.method,
+        statusCode: res.statusCode,
+        responseTime,
+        success,
+        timestamp: new Date(),
+      });
     } catch (error) {
-      // Silently fail to not disrupt service
+      // Don't throw error for metrics failures
+      logger.debug('Failed to send metrics', { error: error.message });
     }
   }
 
   /**
-   * Send custom event
+   * Health check endpoint
    */
-  async sendEvent(event) {
-    if (!this.registered) return;
+  createHealthEndpoint() {
+    return (req, res) => {
+      const health = {
+        service: this.config.serviceName,
+        instance: this.config.instanceId,
+        status: 'healthy',
+        metrics: this.metrics,
+        timestamp: new Date(),
+      };
 
-    try {
-      await axios.post(
-        `${this.config.obsidianUrl}/api/events`,
-        {
-          serviceName: this.config.serviceName,
-          ...event,
-        },
-        {
-          timeout: 5000,
-        }
-      );
-    } catch (error) {
-      // Silently fail
+      res.json(health);
+    };
+  }
+
+  /**
+   * Cleanup
+   */
+  destroy() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
     }
   }
 }
 
 /**
- * Factory function for easy initialization
+ * Factory function to create SDK instance
  */
-export function createAgent(config) {
-  const agent = new ObsidianAgent(config);
-  agent.initialize();
-  return agent;
+function createAgent(config) {
+  return new ObsidianSDK(config);
 }
 
-export default ObsidianAgent;
+/**
+ * Express middleware for easy integration
+ */
+function obsidianMiddleware(config) {
+  const sdk = new ObsidianSDK(config);
 
+  return {
+    register: () => sdk.register(),
+    tracking: sdk.createTrackingMiddleware(),
+    health: sdk.createHealthEndpoint(),
+    destroy: () => sdk.destroy(),
+  };
+}
+
+// ES6 exports
+export { ObsidianSDK, createAgent, obsidianMiddleware };
+export default ObsidianSDK;

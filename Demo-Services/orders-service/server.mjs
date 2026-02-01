@@ -1,9 +1,10 @@
-const express = require('express');
-const cors = require('cors');
+import express from 'express';
+import cors from 'cors';
+import { createAgent } from '../../Obsidian-SDK/src/index.js';
 
 const app = express();
 const PORT = process.env.PORT || 4001;
-const INSTANCE_ID = process.env.INSTANCE_ID || '1';
+const INSTANCE_ID = process.env.INSTANCE_ID || 'orders-1';
 
 // Simulate different failure scenarios
 let failureMode = 'normal';
@@ -17,10 +18,33 @@ app.use(express.json());
 let orders = [];
 let orderIdCounter = 1;
 
-// Health check with failure simulation
-app.get('/health', (req, res) => {
+// Initialize Obsidian SDK - Observer Pattern Integration
+const obsidianSDK = createAgent({
+  serviceName: 'orders',
+  instanceId: INSTANCE_ID,
+  serviceUrl: `http://localhost:${PORT}`,
+  obsidianUrl: 'http://localhost:5000',
+  description: 'Orders microservice for managing customer orders',
+  port: PORT,
+});
+
+// Register with Obsidian and start tracking
+obsidianSDK.register().then(() => {
+  console.log('Orders service registered with Obsidian MROP');
+}).catch(err => {
+  console.error('Failed to register with Obsidian:', err.message);
+});
+
+// Add SDK tracking middleware
+app.use(obsidianSDK.createTrackingMiddleware());
+
+// Health check with failure simulation (SDK enhanced)
+app.get('/health', obsidianSDK.createHealthEndpoint());
+
+// Alternative health endpoint with failure simulation
+app.get('/health-alt', (req, res) => {
   requestCount++;
-  
+
   // Simulate different failure modes
   if (failureMode === 'fail') {
     return res.status(500).json({
@@ -339,12 +363,35 @@ app.get('/orders/status', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('Received SIGTERM, shutting down gracefully...');
+  obsidianSDK.destroy();
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('Received SIGINT, shutting down gracefully...');
+  obsidianSDK.destroy();
+  process.exit(0);
+});
+
+app.listen(PORT, async () => {
   console.log(`🚀 Orders Service (Instance ${INSTANCE_ID}) running on port ${PORT}`);
+  console.log(`📊 Obsidian SDK integrated - Observer pattern active`);
   console.log(`📊 Failure simulation endpoints:`);
   console.log(`   POST /orders/fail - Simulate failures`);
   console.log(`   POST /orders/slow - Simulate slow responses`);
   console.log(`   POST /orders/overload - Simulate overload`);
   console.log(`   POST /orders/recover - Recover from failures`);
+
+  // Try to register with Obsidian
+  try {
+    await obsidianSDK.register();
+    console.log(`✅ Successfully registered with Obsidian MROP`);
+  } catch (error) {
+    console.log(`⚠️  Could not register with Obsidian: ${error.message}`);
+    console.log(`   Service will still work but metrics won't be tracked`);
+  }
 });
 

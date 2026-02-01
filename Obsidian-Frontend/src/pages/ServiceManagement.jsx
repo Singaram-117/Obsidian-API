@@ -19,17 +19,28 @@ export default function ServiceManagement() {
   console.log("Service Statuses:", serviceStatuses);
 
   // Fetch services
-  const { data: services } = useQuery({
+  const { data: services, isLoading: servicesLoading, error: servicesError } = useQuery({
     queryKey: ['services'],
     queryFn: async () => {
       try {
-        const data = await servicesApi.getAll();
-        return data?.data || data || [];
+        const response = await servicesApi.getAll();
+        console.log('ServiceManagement - API response:', response);
+        // Handle different response formats
+        if (Array.isArray(response)) {
+          return response;
+        }
+        if (response && response.data && Array.isArray(response.data)) {
+          return response.data;
+        }
+        return [];
       } catch (error) {
         console.error('Failed to fetch services:', error);
-        return [];
+        throw error;
       }
     },
+    refetchInterval: 5000,
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Fetch service overview
@@ -63,6 +74,41 @@ export default function ServiceManagement() {
   // Ensure services is always an array
   const servicesList = Array.isArray(services) ? services : [];
 
+  // Show loading state
+  if (servicesLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="p-12 text-center max-w-md">
+          <div className="animate-spin w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <h2 className="text-2xl font-bold mb-4 gradient-text">Loading Services...</h2>
+          <p className="text-slate-400">Fetching service information...</p>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (servicesError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="p-12 text-center max-w-md">
+          <div className="text-6xl mb-6">⚠️</div>
+          <h2 className="text-2xl font-bold mb-4 text-red-400">Failed to Load Services</h2>
+          <p className="text-slate-400 mb-6">
+            {servicesError.message || 'Unable to fetch services. Please try again.'}
+          </p>
+          <Button 
+            onClick={() => window.location.reload()}
+            className="bg-gradient-to-r from-red-500 to-red-600"
+          >
+            🔄 Retry
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show no services state
   if (servicesList.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">

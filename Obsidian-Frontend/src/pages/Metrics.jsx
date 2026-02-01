@@ -22,18 +22,28 @@ export default function Metrics() {
   const [selectedService, setSelectedService] = useState('all');
 
   // Fetch services
-  const { data: servicesData, isLoading: servicesLoading } = useQuery({
+  const { data: servicesData, isLoading: servicesLoading, error: servicesError } = useQuery({
     queryKey: ['services'],
     queryFn: async () => {
       try {
-        const data = await servicesApi.getAll();
-        return data?.data || data || [];
+        const response = await servicesApi.getAll();
+        console.log('Metrics - API response:', response);
+        // Handle different response formats
+        if (Array.isArray(response)) {
+          return response;
+        }
+        if (response && response.data && Array.isArray(response.data)) {
+          return response.data;
+        }
+        return [];
       } catch (error) {
         console.error('Failed to fetch services:', error);
-        return [];
+        throw error;
       }
     },
-    refetchInterval: 5000,
+    refetchInterval: 60000, // 1 minute
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Fetch aggregated metrics
@@ -51,7 +61,7 @@ export default function Metrics() {
         return [];
       }
     },
-    refetchInterval: 10000,
+    refetchInterval: 60000, // 1 minute
   });
 
   const services = Array.isArray(servicesData) ? servicesData : [];
@@ -60,6 +70,10 @@ export default function Metrics() {
   // Calculate summary stats
   const totalRequests = services.reduce(
     (sum, s) => sum + (s.metrics?.totalRequests || 0),
+    0
+  );
+  const totalSuccessful = services.reduce(
+    (sum, s) => sum + (s.metrics?.successfulRequests || 0),
     0
   );
   const totalFailures = services.reduce(
@@ -73,7 +87,7 @@ export default function Metrics() {
       ) / services.length
     : 0;
   const successRate = totalRequests > 0 
-    ? ((totalRequests - totalFailures) / totalRequests * 100).toFixed(1)
+    ? Math.min(100, Math.max(0, (totalSuccessful / totalRequests * 100))).toFixed(1)
     : 100;
 
   // Prepare chart data
@@ -111,6 +125,41 @@ export default function Metrics() {
               <div className="h-20 bg-gray-700/50 rounded-xl"></div>
             </Card>
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (servicesError) {
+    return (
+      <div className="space-y-8 p-6">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <h1 className="text-4xl font-merriweather font-bold gradient-text flex items-center gap-3">
+            <Activity className="w-10 h-10" />
+            Performance Metrics
+          </h1>
+          <p className="mt-3 text-gray-400 font-inter text-lg">
+            Real-time performance monitoring and analytics
+          </p>
+        </motion.div>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="text-6xl mb-4">⚠️</div>
+            <h3 className="text-2xl font-bold mb-2 text-red-400">Failed to Load Services</h3>
+            <p className="text-gray-400 mb-6">
+              {servicesError.message || 'Unable to fetch services. Please try again.'}
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-2 rounded-lg hover:from-red-600 hover:to-red-700 transition-all"
+            >
+              🔄 Retry
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -321,7 +370,9 @@ export default function Metrics() {
                   const total = service.metrics?.totalRequests || 0;
                   const successful = service.metrics?.successfulRequests || 0;
                   const failed = service.metrics?.failedRequests || 0;
-                  const successRate = total > 0 ? (successful / total) * 100 : 0;
+                  const successRate = total > 0 
+                    ? Math.min(100, Math.max(0, (successful / total) * 100)) 
+                    : 0;
                   const avgResponse = service.metrics?.averageResponseTime || 0;
 
                   return (

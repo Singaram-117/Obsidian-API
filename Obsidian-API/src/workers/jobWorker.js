@@ -6,7 +6,6 @@ import { connectDB } from '../db/database.js';
  * Job Worker - Processes background jobs
  */
 
-// Define queue processors
 const processors = {
   // Health check job processor
   healthCheck: async (job) => {

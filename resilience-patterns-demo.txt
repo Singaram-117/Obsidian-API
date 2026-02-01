@@ -1,0 +1,81 @@
+Resilience Patterns Demo Guide
+==============================
+
+Prerequisites
+-------------
+1. Start the backend (`Obsidian-API`): `cd Obsidian-API && npm install` (once) and then `npm start`.
+2. Start the frontend (`Obsidian-Frontend`): `cd Obsidian-Frontend && npm install` (once) and `npm run dev`.
+3. Open the dashboard at `http://localhost:5173` (the UI streams Socket.IO events from `http://localhost:5000`).
+4. Launch demo services: `cd Demo-Services && .\START_ALL.bat`.
+5. Optionally run the background worker (`node Obsidian-API/src/workers/jobWorker.js`) if you want queue processing visible in the dashboard.
+
+Pattern Demos
+-------------
+
+1. **Circuit Breaker**
+   - Run `node Demo-Services/failure-simulator.js` (automatic mode) to inject repeated failures.
+   - Watch the dashboard’s event feed (“Circuit breaker opened/closed”) and inspect `/api/events?severity=error` for `circuit_opened`.
+   - When the simulator recovers, the breaker closes and services return to “healthy”.
+   - Verification: `curl http://localhost:5000/api/events?limit=5` and confirm `circuit_opened` events while the simulator is running.
+
+2. **Rate Limiting**
+   - Configure aggressive limits: 
+     ```
+     curl -X PUT http://localhost:5000/api/rate-limit/orders \
+       -H "Content-Type: application/json" \
+       -d '{"requestsPerMinute":5}'
+     ```
+   - Flood the system with `node Demo-Services/traffic-generator.js`.
+   - Observe `429` responses in the console and “rate_limit_exceeded” events on the dashboard.
+   - Optional check: `curl http://localhost:5000/api/events?type=rate_limit_exceeded`.
+
+3. **Load Balancing**
+   - Start extra order service instances: `cd Demo-Services && .\START_EXTRA_INSTANCES.bat`.
+   - Configure strategy:
+     ```
+     curl -X PUT http://localhost:5000/api/load-balancer/orders \
+       -H "Content-Type: application/json" \
+       -d '{"strategy":"round-robin"}'
+     ```
+   - Run `node Demo-Services/traffic-generator.js` and open the dashboard’s “Instances” tab; you should see traffic distributed across multiple instance entries and health checks firing.
+
+4. **Bulkhead Isolation**
+   - Start `node Obsidian-API/src/workers/jobWorker.js` to process Bull queues.
+   - Trigger heavy jobs via `node Demo-Services/failure-simulator.js --interactive` and repeatedly fail one service (`fail orders`), while leaving another service (e.g., `payments`) healthy.
+   - The dashboard shows queue stats (via `/api/queues`) and the healthy service continues to accept traffic while the faulty queue contains retries.
+   - Bulkheads are demonstrated because Bull queue failures stay isolated; other queues keep processing (confirm via worker logs and `curl http://localhost:5000/api/metrics`).
+
+5. **Cache-Aside**
+   - Request orders health repeatedly:
+     ```
+     curl http://localhost:5000/api/gateway/orders/health
+     ```
+     Do it once to populate the cache and then again to see “Cache hit” logged by `responseCacheService`.
+   - Inspect `Obsidian-API/logs/` (Winston) or check the dashboard’s cache stats (if you have a cache panel) to confirm hits/misses.
+
+6. **Retry with Exponential Backoff**
+   - Add a job that intermittently fails, e.g., hit an endpoint while the downstream service is forced into slow/fail mode (`POST /orders/fail`), then look at the worker log lines from `queueService` (they include `defaultJobOptions` with `backoff: { type: 'exponential' }`).
+   - Watch the Bull queue process retries (worker console emits “Job ... failed ... retrying” with increasing delays). The controller continues emitting events even while retries happen.
+
+7. **Timeout Handling**
+   - Use `POST http://localhost:4001/orders/slow` (via the demo service) to force 2–5s responses.
+   - The circuit breaker / gateway logs timeouts (`eventEmitter` emits `request_timeout`) and the dashboard shows delayed response metrics and alerts.
+   - Run `curl http://localhost:5000/api/events?type=request_timeout` to prove the timeout pattern fired.
+
+8. **Fallback**
+   - Stop or disable an instance (e.g., `POST /orders/fail`), then hit `http://localhost:5000/api/gateway/orders/` through the gateway; `apiGatewayService` will fall back to the registered `service.url` when no healthy instances are available.
+   - The dashboard should display the fallback path and the `Object.assign` logs that say “Using service URL as fallback”.
+
+9. **Saga (Distributed Transactions)**
+   - Run `node Demo-Services/functional-faulty-demo.js` to execute a coordinated flow: orders and payments stay functional while booking fails.
+   - Watch how compensating `recover` endpoints are invoked for the failed booking service while the other services stay healthy.
+   - Use the dashboard events (service up/down, alerts) to narrate how each step succeeds or compensates, showing the Saga idea by walking through sequential operations and failure recovery.
+
+Additional Notes
+----------------
+- Keep `Demo-Services/failure-simulator.js` running for live failure coverage; the interactive shell (`--interactive`) lets you jump between fail/slow/overload/recover states.
+- Use ` Demo-Services/traffic-generator.js` with `--target orders` (if supported; check the script) to focus on a single resilience pattern at a time.
+- The dashboard at `http://localhost:5173` reflects events emitted by `Obsidian-API/src/services/eventService.js`, so verifying each pattern simply requires watching the real-time feed while you trigger the corresponding scenario.
+
+This file distills the actionable commands and verification steps for each resilience pattern in Obsidian MROP.
+

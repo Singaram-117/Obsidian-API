@@ -1,3 +1,4 @@
+import React from 'react';
 import Card from './Card';
 
 export default function StatCard({ 
@@ -14,7 +15,11 @@ export default function StatCard({
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-medium text-gray-400">{title}</h3>
-        {icon && <span className="text-2xl">{icon}</span>}
+        {icon && (
+          <span className="text-2xl">
+            {typeof icon === 'string' ? icon : React.createElement(icon)}
+          </span>
+        )}
       </div>
 
       {/* Value */}

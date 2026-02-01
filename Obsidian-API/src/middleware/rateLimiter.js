@@ -71,4 +71,3 @@ export const loginLimiter = rateLimit({
 });
 
 export default { apiLimiter, strictLimiter, loginLimiter };
-

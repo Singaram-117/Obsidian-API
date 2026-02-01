@@ -98,18 +98,12 @@ class EventService extends EventEmitter {
 
     // Rate Limit Events
     this.on('rateLimit:exceeded', async (data) => {
-      const serviceName = data.serviceName || 'api';
-      const endpointSuffix = data.endpoint ? ` (${data.endpoint})` : '';
-
       await this.recordEvent({
         type: 'rate_limit_exceeded',
-        serviceName,
+        serviceName: data.serviceName || 'api',
         severity: 'warning',
-        message: `Rate limit exceeded for ${serviceName}${endpointSuffix}`,
-        metadata: {
-          ...data,
-          clientId: data.clientId || data.ip,
-        },
+        message: `Rate limit exceeded for ${data.ip}`,
+        metadata: data,
       });
     });
 

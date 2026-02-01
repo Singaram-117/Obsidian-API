@@ -1,7 +1,6 @@
 import Service from '../models/Service.js';
 import logger from '../utils/logger.js';
 import config from '../config/config.js';
-import { eventEmitter } from './eventService.js';
 
 /**
  * Advanced Rate Limiting Service - Strategy Pattern Implementation
@@ -166,15 +165,6 @@ class RateLimitService {
           strategy,
           resetAt: serviceCheck.resetAt,
         });
-        this.emitRateLimitEvent({
-          serviceName,
-          endpoint: '*',
-          clientId,
-          limit,
-          strategy,
-          reason: 'service_limit_exceeded',
-          resetAt: serviceCheck.resetAt,
-        });
         return {
           allowed: false,
           reason: 'service_limit_exceeded',
@@ -198,15 +188,6 @@ class RateLimitService {
           endpoint,
           clientId,
           limit,
-          resetAt: endpointCheck.resetAt,
-        });
-        this.emitRateLimitEvent({
-          serviceName,
-          endpoint,
-          clientId,
-          limit,
-          strategy,
-          reason: 'endpoint_limit_exceeded',
           resetAt: endpointCheck.resetAt,
         });
         return {
@@ -235,13 +216,6 @@ class RateLimitService {
           endpoint,
           limit: endpointLimits[endpoint].requestsPerMinute,
         });
-        this.emitRateLimitEvent({
-          serviceName,
-          endpoint,
-          limit: endpointLimits[endpoint].requestsPerMinute,
-          reason: 'endpoint_limit_exceeded',
-          resetAt: endpointCheck.resetAt,
-        });
         return {
           allowed: false,
           reason: 'endpoint_limit_exceeded',
@@ -268,13 +242,6 @@ class RateLimitService {
           serviceName,
           clientId,
           limit: clientLimit.requestsPerMinute,
-        });
-        this.emitRateLimitEvent({
-          serviceName,
-          clientId,
-          limit: clientLimit.requestsPerMinute,
-          reason: 'client_limit_exceeded',
-          resetAt: clientCheck.resetAt,
         });
         return {
           allowed: false,
@@ -315,20 +282,6 @@ class RateLimitService {
 
     bucket.count++;
     return { allowed: true, count: bucket.count, resetAt: bucket.resetAt };
-  }
-
-  emitRateLimitEvent(payload) {
-    try {
-      eventEmitter.emit('rateLimit:exceeded', {
-        timestamp: new Date(),
-        ...payload,
-      });
-    } catch (error) {
-      logger.warn('Failed to emit rate limit event', {
-        error: error.message,
-        payload,
-      });
-    }
   }
 
   /**

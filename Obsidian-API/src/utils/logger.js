@@ -2,10 +2,6 @@ import winston from 'winston';
 import MongoDB from 'winston-mongodb';
 import config from '../config/config.js';
 
-/**
- * Centralized Logging using Winston with MongoDB Transport
- * Implements Observer Pattern - logs are automatically sent to multiple transports
- */
 const logger = winston.createLogger({
   level: config.get('server.env') === 'production' ? 'info' : 'debug',
   format: winston.format.combine(

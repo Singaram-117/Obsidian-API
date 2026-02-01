@@ -10,9 +10,6 @@ class GitHubService {
     this.githubAPI = 'https://api.github.com';
   }
 
-  /**
-   * Parse GitHub URL to extract owner and repo
-   */
   parseGitHubUrl(url) {
     // Supports: https://github.com/owner/repo or git@github.com:owner/repo.git
     const patterns = [

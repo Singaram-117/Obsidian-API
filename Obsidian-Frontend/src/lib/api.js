@@ -47,11 +47,38 @@ api.interceptors.response.use(
   }
 );
 
-// Services API
+// Services API - Updated to use gateway for microservice calls
 export const servicesApi = {
   getAll: async () => {
-    const response = await api.get('/services');
-    return response.data.data || response.data || [];
+    try {
+      const response = await api.get('/services');
+      console.log('Services API response:', response);
+      
+      // Handle different response formats
+      if (response.data && response.data.success) {
+        return response.data.data || [];
+      }
+      return response.data || [];
+    } catch (error) {
+      console.error('Services API error:', error);
+      throw error;
+    }
+  },
+
+  // Call microservice through gateway (with resilience patterns)
+  callThroughGateway: async (serviceName, endpoint, method = 'GET', data = null) => {
+    const url = `/gateway/${serviceName}${endpoint}`;
+    const config = {
+      method: method.toLowerCase(),
+      url,
+    };
+
+    if (data && method.toLowerCase() !== 'get') {
+      config.data = data;
+    }
+
+    const response = await api.request(config);
+    return response.data;
   },
   getOne: async (name) => {
     const response = await api.get(`/services/${name}`);
@@ -90,8 +117,20 @@ export const servicesApi = {
 // Events API
 export const eventsApi = {
   getAll: async (params) => {
-    const response = await api.get('/events', { params });
-    return response.data;
+    try {
+      const response = await api.get('/events', { params });
+      console.log('Events API response:', response);
+      
+      // Handle different response formats
+      if (response.data && response.data.success) {
+        return response.data.data || [];
+      }
+      return response.data || [];
+    } catch (error) {
+      console.error('Events API error:', error);
+      // Return empty array for events to prevent dashboard from breaking
+      return [];
+    }
   },
   getByService: async (serviceName, params) => {
     const response = await api.get(`/events/service/${serviceName}`, { params });
